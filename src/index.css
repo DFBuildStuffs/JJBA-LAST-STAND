@@ -1,0 +1,308 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    height: 100%;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: 'Oswald', sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+}
+
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem));
+}
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+}
+.pl-safe {
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0.75rem));
+}
+.pr-safe {
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0.75rem));
+}
+
+.font-bangers {
+  font-family: 'Bangers', cursive, sans-serif;
+  letter-spacing: 1.5px;
+}
+
+.font-oswald {
+  font-family: 'Oswald', sans-serif;
+}
+
+/* JoJo Manga styling utilities */
+.jojo-text-shadow {
+  text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 4px 4px 0 #9333ea;
+}
+
+.jojo-text-gold {
+  text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 3px 3px 12px rgba(250, 204, 21, 0.8);
+}
+
+.jojo-box-shadow {
+  box-shadow: 4px 4px 0px #000, 8px 8px 0px rgba(147, 51, 234, 0.8);
+}
+
+.jojo-box-gold {
+  box-shadow: 4px 4px 0px #000, 8px 8px 0px rgba(245, 158, 11, 0.9);
+}
+
+.jojo-card-glow {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.5), 0 4px 15px rgba(0, 0, 0, 0.8);
+}
+
+/* Comic speedlines background */
+.comic-lines {
+  background-image: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.04) 0deg 10deg,
+    transparent 10deg 20deg
+  );
+}
+
+/* Manga halftone dots */
+.halftone-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+/* Custom animated action banners */
+@keyframes jojoPop {
+  0% { transform: scale(0.2) rotate(-6deg); opacity: 0; }
+  15% { transform: scale(1.08) rotate(3deg); opacity: 1; }
+  85% { transform: scale(1.0) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.15) rotate(4deg); opacity: 0; }
+}
+
+.animate-jojo-banner {
+  animation: jojoPop 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes floatMenacing {
+  0% { transform: translateY(0px) scale(0.95); opacity: 0.6; }
+  50% { transform: translateY(-15px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(-30px) scale(1.02); opacity: 0.5; }
+}
+
+.animate-menacing {
+  animation: floatMenacing 3s ease-in-out infinite alternate;
+}
+
+/* Time stop inverted distortion */
+.time-stop-active {
+  filter: contrast(180%) invert(85%) hue-rotate(180deg);
+  transition: filter 0.3s ease;
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: #a855f7;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #facc15;
+}
+
+/* Screen shake for Stand Clash finisher impact */
+@keyframes violentScreenShake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-10px, 7px) rotate(-2.5deg); }
+  20% { transform: translate(10px, -7px) rotate(2.5deg); }
+  30% { transform: translate(-8px, -5px) rotate(-2deg); }
+  40% { transform: translate(8px, 5px) rotate(2deg); }
+  50% { transform: translate(-5px, 3px) rotate(-1deg); }
+  60% { transform: translate(5px, -3px) rotate(1deg); }
+  70% { transform: translate(-3px, 2px) rotate(-0.5deg); }
+  80% { transform: translate(3px, -2px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.animate-screen-shake {
+  animation: violentScreenShake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Expanding manga shockwave ring */
+@keyframes shockwavePulse {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; border-width: 10px; }
+  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; border-width: 1px; }
+}
+
+.animate-shockwave {
+  animation: shockwavePulse 0.8s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+/* Stand Activation Anime Palette Swap (Iconic JoJo Araki Color Shift) */
+@keyframes standPaletteSwap {
+  0% {
+    filter: none;
+    opacity: 0;
+  }
+  15% {
+    filter: invert(90%) hue-rotate(190deg) contrast(160%) saturate(220%);
+    opacity: 0.85;
+  }
+  40% {
+    filter: invert(40%) hue-rotate(90deg) contrast(140%) saturate(180%);
+    opacity: 0.6;
+  }
+  70% {
+    filter: hue-rotate(45deg) saturate(140%);
+    opacity: 0.35;
+  }
+  100% {
+    filter: none;
+    opacity: 0;
+  }
+}
+
+.animate-stand-palette-swap {
+  animation: standPaletteSwap 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Stand Aura Surging Shockwaves */
+@keyframes standAuraRing {
+  0% {
+    transform: scale(0.15);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px currentColor);
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+    filter: drop-shadow(0 0 35px currentColor);
+  }
+}
+
+.animate-stand-aura-ring {
+  animation: standAuraRing 1.1s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+/* Cinematic Manga Cut-in Strike */
+@keyframes mangaCutIn {
+  0% {
+    transform: translateX(-110%) skewX(-14deg);
+    opacity: 0;
+  }
+  18% {
+    transform: translateX(0%) skewX(-14deg);
+    opacity: 1;
+  }
+  75% {
+    transform: translateX(0%) skewX(-14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(110%) skewX(-14deg);
+    opacity: 0;
+  }
+}
+
+.animate-manga-cutin {
+  animation: mangaCutIn 1.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Manga Speed Lines Zoom Burst */
+@keyframes speedlinesBurst {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  80% {
+    transform: scale(1.05);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+.animate-speedlines-burst {
+  animation: speedlinesBurst 1.6s ease-out forwards;
+}
+
+/* Comic Slash Blade Cut */
+@keyframes comicSlashCut {
+  0% {
+    transform: translate(-100%, -100%) rotate(-35deg) scaleX(0.2);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(0, 0) rotate(-35deg) scaleX(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translate(0, 0) rotate(-35deg) scaleX(1.1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(100%, 100%) rotate(-35deg) scaleX(0.2);
+    opacity: 0;
+  }
+}
+
+.animate-comic-slash {
+  animation: comicSlashCut 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Menacing Kanji Float and Radiate */
+@keyframes kanjiRadiate {
+  0% {
+    transform: translate(0, 0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(var(--tx, 0), var(--ty, -20px)) scale(1.2) rotate(var(--rot, 0deg));
+    opacity: 1;
+  }
+  80% {
+    transform: translate(calc(var(--tx, 0) * 1.5), calc(var(--ty, -20px) * 1.8)) scale(1.1) rotate(var(--rot, 0deg));
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(calc(var(--tx, 0) * 2), calc(var(--ty, -20px) * 2.5)) scale(0.9) rotate(calc(var(--rot, 0deg) * 1.2));
+    opacity: 0;
+  }
+}
+
+.animate-kanji-radiate {
+  animation: kanjiRadiate 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Stand Flame / Aura Flicker */
+@keyframes standAuraFlame {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scaleY(1.3) scaleX(1.1);
+    opacity: 1;
+  }
+}
+
+.animate-stand-flame {
+  animation: standAuraFlame 0.4s ease-in-out infinite alternate;
+}
+
+

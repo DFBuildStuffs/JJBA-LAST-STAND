@@ -1,0 +1,8 @@
+{
+  "name": "JoJo\u0027s Bizarre Adventure: Last Stand - Last Stand",
+  "description": "An upgraded, immersive 3D anime snakes \u0026 ladders board game with Three.js rendering, special Stand ability cards, dynamic camera angles, and tactical Stand Battles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

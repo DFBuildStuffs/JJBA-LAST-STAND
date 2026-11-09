@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JJBA: Last Stand Game</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom Fonts: Bangers for titles, Oswald for body -->
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for character and UI icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Oswald', sans-serif;
+            background-color: #2b1055;
+            color: white;
+            overflow: hidden; /* Prevent scrolling, keep it app-like */
+            touch-action: manipulation; /* Improve touch responsiveness */
+        }
+        
+        .bangers-font {
+            font-family: 'Bangers', cursive;
+            letter-spacing: 2px;
+        }
+
+        /* JoJo inspired gradients and borders */
+        .jojo-border {
+            border: 4px solid #facc15;
+            box-shadow: 4px 4px 0px #9333ea, 8px 8px 0px #000;
+        }
+
+        .jojo-btn {
+            background: linear-gradient(45deg, #9333ea, #ec4899);
+            border: 3px solid white;
+            box-shadow: 3px 3px 0px #000;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .jojo-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0px #000;
+            background: linear-gradient(45deg, #a855f7, #f472b6);
+        }
+
+        .jojo-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px #000;
+        }
+
+        /* Screen Management */
+        .screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #4c1d95, #1e1b4b);
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        #board-container {
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 600px;
+            max-height: 600px;
+            position: relative;
+            background-color: #2e1065;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M-20 20 Q 30 60 70 20 T 120 20' fill='none' stroke='%23a855f7' stroke-width='4' opacity='0.7'/%3E%3Cpath d='M-20 80 Q 30 40 70 80 T 120 80' fill='none' stroke='%239333ea' stroke-width='3' opacity='0.6'/%3E%3Cpath d='M20 -20 Q 60 30 20 70 T 20 120' fill='none' stroke='%23c084fc' stroke-width='4' opacity='0.5'/%3E%3Cpath d='M80 -20 Q 40 30 80 70 T 80 120' fill='none' stroke='%237e22ce' stroke-width='5' opacity='0.7'/%3E%3C/svg%3E");
+            border: 8px solid #f59e0b;
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.8), inset 0 0 30px rgba(0,0,0,0.8);
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            border-radius: 12px;
+        }
+
+        .cell {
+            border: 1px solid rgba(255,255,255,0.15);
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: rgba(0,0,0,0.6);
+            position: relative;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        
+        .cell:hover {
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .cell-number {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 0.7rem;
+            color: rgba(0,0,0,0.5);
+        }
+
+        /* Special Cells based on rules */
+        .cell-orange { background-color: #fb923c; } /* The World */
+        .cell-red { background-color: #ef4444; } /* Star Platinum */
+        .cell-blue { background-color: #3b82f6; } /* The Hand */
+        .cell-green { background-color: #22c55e; } /* Echoes */
+        .cell-purple { background-color: #a855f7; } /* Hermit Purple */
+        .cell-yellow { background-color: #eab308; } /* Gold Experience */
+        .cell-pink { background-color: #ec4899; } /* Crazy Diamond */
+        .cell-violet { background-color: #8b5cf6; } /* Killer Queen */
+        .cell-yellow-green { background: linear-gradient(45deg, #eab308, #22c55e); } /* Sticky Fingers */
+        .cell-orange-yellow { background: linear-gradient(45deg, #fb923c, #eab308); } /* The Fool */
+        .cell-red-green { background: linear-gradient(45deg, #ef4444, #22c55e); } /* Heaven's Door */
+        .cell-blue-red { background: linear-gradient(45deg, #3b82f6, #ef4444); } /* H2U */
+        .cell-goal { background: linear-gradient(45deg, #fcd34d, #f59e0b); border: 4px solid gold;}
+
+        .chip {
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 0.5s ease-in-out;
+            z-index: 10;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            font-size: 0.8rem;
+        }
+        
+        /* Ensure chips don't overlap perfectly if on same square */
+        .chip:nth-child(2) { transform: translate(5px, 5px); }
+        .chip:nth-child(3) { transform: translate(-5px, -5px); }
+        .chip:nth-child(4) { transform: translate(-5px, 5px); }
+
+        /* Dice Animation */
+        @keyframes roll {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            100% { transform: rotateX(720deg) rotateY(720deg); }
+        }
+        .rolling {
+            animation: roll 1s ease-out;
+        }
+        
+        #dice-display {
+            font-size: 4rem;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            color: black;
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 2px 2px 5px black;
+        }
+
+        @keyframes popOut {
+            0% { transform: scale(0); opacity: 0; }
+            10% { transform: scale(1.5); opacity: 1; }
+            90% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .action-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Bangers', cursive;
+            font-size: 5rem;
+            color: #facc15;
+            text-shadow: 4px 4px 0 #000, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 0 0 20px purple;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0;
+            text-align: center;
+            line-height: 1;
+        }
+        .animate-action {
+            animation: popOut 2s ease-in-out forwards;
+        }
+        
+        .menacing {
+            position: absolute;
+            font-family: 'Bangers';
+            color: purple;
+            font-size: 2rem;
+            animation: float 3s infinite alternate;
+            opacity: 0.7;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-20px) scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="screen-menu" class="screen active">
+        <div class="menacing" style="top: 10%; left: 10%;">ゴゴゴ</div>
+        <div class="menacing" style="top: 20%; right: 15%; animation-delay: 1s;">ゴゴゴ</div>
+        <div class="menacing" style="bottom: 15%; left: 20%; animation-delay: 0.5s;">ゴゴゴ</div>
+        
+        <h1 class="bangers-font text-6xl md:text-8xl text-center mb-2" style="color: #60a5fa; text-shadow: 3px 3px 0 #fff, 6px 6px 0 #000;">
+            <span style="font-size: 1.5em; font-style: italic;">JOJO'S</span>
+        </h1>
+        <h2 class="bangers-font text-4xl md:text-6xl text-center mb-8" style="color: #c026d3; text-shadow: 2px 2px 0 #fff, 4px 4px 0 #000;">
+            BIZARRE ADVENTURE<br>LAST STAND
+        </h2>
+        
+        <div class="flex flex-col gap-4 w-64 z-10">
+            <button onclick="startGameMode('ai')" class="jojo-btn py-3 text-xl font-bold rounded">Play vs AI</button>
+            <button onclick="startFriendsMode()" class="jojo-btn py-3 text-xl font-bold rounded">Play with Friends</button>
+            <button onclick="showScreen('screen-rules')" class="jojo-btn py-3 text-xl font-bold rounded bg-gray-700">Rules</button>
+        </div>
+    </div>
+
+    <div id="screen-dice-choice" class="screen">
+        <h2 class="bangers-font text-5xl mb-8 jojo-border p-4 bg-purple-900 rounded text-center">Choose Dice Mode</h2>
+        <div class="flex flex-col gap-4 w-64">
+            <button onclick="selectDiceMode('auto')" class="jojo-btn py-3 text-xl font-bold rounded">Computer Dice</button>
+            <button onclick="selectDiceMode('manual')" class="jojo-btn py-3 text-xl font-bold rounded">Real World Dice</button>
+            <button onclick="showScreen('screen-menu')" class="mt-8 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded border-2 border-white">Back</button>
+        </div>
+    </div>
+
+    <div id="screen-rivals" class="screen">
+        <h2 class="bangers-font text-5xl mb-8 jojo-border p-4 bg-purple-900 rounded">Select Number of Rivals</h2>
+        <div class="flex flex-col gap-4 w-64">
+            <button onclick="setPlayers(2, false)" class="jojo-btn py-3 text-xl font-bold rounded">1 Rival (2P)</button>
+            <button onclick="setPlayers(3, false)" class="jojo-btn py-3 text-xl font-bold rounded">2 Rivals (3P)</button>
+            <button onclick="setPlayers(4, false)" class="jojo-btn py-3 text-xl font-bold rounded">3 Rivals (4P)</button>
+            <button onclick="showScreen('screen-menu')" class="mt-8 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded border-2 border-white">Back</button>
+        </div>
+    </div>
+
+    <div id="screen-character" class="screen">
+        <h2 class="bangers-font text-4xl md:text-5xl mb-4 text-yellow-300 drop-shadow-lg">Player <span id="current-player-select">1</span>: Choose Character</h2>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-black/50 rounded-xl border-4 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)] max-w-4xl w-full max-h-[75vh] overflow-y-auto">
+            <!-- JOTARO -->
+            <div onclick="selectCharacter('Jotaro')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Jotaro">
+                <div class="w-20 h-20 bg-red-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                     <i class="fa-solid fa-hand-fist text-3xl"></i>
+                </div>
+                <div class="border-2 border-red-600 bg-white text-black font-bold py-1 px-4 text-xl">JOTARO</div>
+            </div>
+            <!-- GIORNO -->
+            <div onclick="selectCharacter('Giorno')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Giorno">
+                <div class="w-20 h-20 bg-yellow-400 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-black">
+                    <i class="fa-solid fa-bug text-3xl"></i>
+                </div>
+                <div class="border-2 border-yellow-400 bg-white text-black font-bold py-1 px-4 text-xl">GIORNO</div>
+            </div>
+            <!-- JOSUKE -->
+            <div onclick="selectCharacter('Josuke')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Josuke">
+                <div class="w-20 h-20 bg-blue-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                    <i class="fa-solid fa-heart text-3xl"></i>
+                </div>
+                <div class="border-2 border-blue-600 bg-white text-black font-bold py-1 px-4 text-xl">JOSUKE</div>
+            </div>
+            <!-- JOSEPH -->
+            <div onclick="selectCharacter('Joseph')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Joseph">
+                <div class="w-20 h-20 bg-purple-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                     <i class="fa-solid fa-camera text-3xl"></i>
+                </div>
+                <div class="border-2 border-purple-600 bg-white text-black font-bold py-1 px-4 text-xl">JOSEPH</div>
+            </div>
+            <!-- JOLYNE -->
+            <div onclick="selectCharacter('Jolyne')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Jolyne">
+                <div class="w-20 h-20 bg-lime-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-black">
+                     <i class="fa-solid fa-glasses text-3xl"></i>
+                </div>
+                <div class="border-2 border-lime-500 bg-white text-black font-bold py-1 px-4 text-xl">JOLYNE</div>
+            </div>
+            <!-- JOHNNY -->
+            <div onclick="selectCharacter('Johnny')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Johnny">
+                <div class="w-20 h-20 bg-cyan-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white">
+                     <i class="fa-solid fa-horse text-3xl"></i>
+                </div>
+                <div class="border-2 border-cyan-500 bg-white text-black font-bold py-1 px-4 text-xl">JOHNNY</div>
+            </div>
+            <!-- JONATHAN -->
+            <div onclick="selectCharacter('Jonathan')" class="char-select cursor-pointer flex flex-col items-center gap-2 hover:scale-110 transition-transform p-2" id="char-Jonathan">
+                <div class="w-20 h-20 bg-orange-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white">
+                     <i class="fa-solid fa-sun text-3xl"></i>
+                </div>
+                <div class="border-2 border-orange-500 bg-white text-black font-bold py-1 px-4 text-xl">JONATHAN</div>
+            </div>
+        </div>
+        
+        <div id="ai-selection-msg" class="hidden mt-4 text-xl font-bold text-yellow-300">AI is choosing...</div>
+    </div>
+
+    <div id="screen-rules" class="screen">
+        <div class="bg-orange-200 text-black p-6 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto border-8 border-orange-500 shadow-2xl relative">
+            <h1 class="bangers-font text-5xl text-center text-purple-800 mb-4">LAST STAND GAME</h1>
+            <h2 class="text-2xl font-bold text-center bg-orange-400 py-1 mb-4 border-y-2 border-black">Game Mechanics</h2>
+            
+            <div class="text-sm md:text-base space-y-2">
+                <p>1. Playable up to 4 players. Race to Cell 100 (The Golden Arrow).</p>
+                <p>2. Special Cells exist to aid or hinder your journey:</p>
+                <ul class="list-disc pl-6 space-y-1 font-semibold text-white">
+                    <li><span class="text-orange-500 bg-black px-1">Orange (The World)</span> - Miss 2 turns</li>
+                    <li><span class="text-red-500 bg-black px-1">Red (Star Platinum)</span> - +2 extra rolls</li>
+                    <li><span class="text-blue-500 bg-black px-1">Blue (The Hand)</span> - Move 3 cells backward</li>
+                    <li><span class="text-green-500 bg-black px-1">Green (Echoes)</span> - +1 extra roll</li>
+                    <li><span class="text-purple-500 bg-black px-1">Purple (Hermit Purple)</span> - Move 5 cells forward</li>
+                    <li><span class="text-yellow-500 bg-black px-1">Yellow (Gold Exp.)</span> - Teleport to Cell 49</li>
+                    <li><span class="text-pink-500 bg-black px-1">Pink (Crazy Diamond)</span> - Teleport to Cell 56</li>
+                    <li><span class="text-purple-400 bg-black px-1">Violet (Killer Queen)</span> - Teleport to Cell 2</li>
+                    <li><span class="text-yellow-400 bg-black px-1">Yellow-Green (Sticky Fingers)</span> - Move 8 cells forward</li>
+                    <li><span class="text-orange-400 bg-black px-1">Orange-Yellow (The Fool)</span> - Miss 1 turn</li>
+                    <li><span class="text-red-400 bg-black px-1">Red-Green (Heaven's Door)</span> - Steal next player's roll</li>
+                    <li><span class="text-blue-400 bg-black px-1">Blue-Red (H2U)</span> - Give next player an extra roll</li>
+                </ul>
+                <p class="text-black">3. Exact roll needed to land on 100. If you roll over, you bounce back!</p>
+            </div>
+            
+            <button onclick="showScreen('screen-menu')" class="mt-6 w-full bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded border-2 border-black">Close Rules</button>
+        </div>
+    </div>
+
+    <div id="screen-loading" class="screen">
+        <i class="fa-solid fa-spinner fa-spin text-6xl text-yellow-400 mb-8"></i>
+        <h2 class="bangers-font text-5xl tracking-widest text-white mb-4">LOADING...</h2>
+        <div class="bg-black/50 p-4 rounded border-l-4 border-yellow-400 max-w-md text-center">
+            <span class="font-bold text-yellow-300">DID YOU KNOW?</span><br>
+            <span id="loading-fact" class="italic">The Golden Arrow grants immense power to those worthy.</span>
+        </div>
+    </div>
+
+    <div id="screen-game" class="screen p-2 md:p-4" style="background: #111827;">
+        
+        <!-- Pause Button -->
+        <button onclick="pauseGame()" class="absolute top-4 right-4 md:top-8 md:right-8 z-40 bg-purple-900 border-2 border-yellow-400 text-yellow-400 w-12 h-12 rounded-full hover:bg-purple-700 hover:scale-110 transition-all shadow-[0_0_15px_rgba(168,85,247,0.8)] flex items-center justify-center group">
+            <i class="fa-solid fa-pause text-2xl group-hover:scale-110 transition-transform"></i>
+        </button>
+
+        <!-- Big text for battle cries -->
+        <div id="action-text" class="action-text">ORA ORA ORA!</div>
+
+        <div class="flex flex-col md:flex-row w-full max-w-6xl h-full gap-4 items-center justify-center">
+            
+            <!-- Left Side: Player Info & Dice -->
+            <div class="flex flex-row md:flex-col gap-4 w-full md:w-1/4 h-auto md:h-full justify-between items-center bg-gray-800 p-4 rounded-xl border-4 border-purple-500">
+                
+                <div class="w-full">
+                    <h3 class="bangers-font text-2xl text-yellow-400 text-center mb-2 border-b-2 border-yellow-400 pb-1">Current Turn</h3>
+                    <div id="current-player-display" class="flex flex-col items-center bg-black/40 p-2 rounded">
+                        <div id="turn-chip" class="w-12 h-12 rounded-full border-2 border-white mb-2 flex items-center justify-center font-bold shadow-[0_0_10px_white]"></div>
+                        <span id="turn-name" class="font-bold text-xl uppercase text-white">Player</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center my-2 md:my-8">
+                    <div id="dice-display" class="mb-4">
+                        <i class="fa-solid fa-dice-d6 text-5xl"></i>
+                    </div>
+                    <button id="btn-roll" onclick="rollDice()" class="jojo-btn py-2 px-8 text-2xl font-bold rounded-full w-full">
+                        ROLL
+                    </button>
+                    <div id="manual-dice-controls" class="hidden grid-cols-3 gap-2 w-full mt-2">
+                        <button onclick="manualRoll(1)" class="jojo-btn py-2 font-bold rounded text-xl">1</button>
+                        <button onclick="manualRoll(2)" class="jojo-btn py-2 font-bold rounded text-xl">2</button>
+                        <button onclick="manualRoll(3)" class="jojo-btn py-2 font-bold rounded text-xl">3</button>
+                        <button onclick="manualRoll(4)" class="jojo-btn py-2 font-bold rounded text-xl">4</button>
+                        <button onclick="manualRoll(5)" class="jojo-btn py-2 font-bold rounded text-xl">5</button>
+                        <button onclick="manualRoll(6)" class="jojo-btn py-2 font-bold rounded text-xl">6</button>
+                    </div>
+                </div>
+
+                <div class="w-full flex-grow overflow-hidden flex flex-col">
+                     <h3 class="bangers-font text-xl text-blue-400 mb-1">Game Log</h3>
+                     <div id="game-log" class="bg-black text-green-400 text-xs p-2 h-24 md:h-full overflow-y-auto rounded border border-gray-600 font-mono flex-grow">
+                         > Game Started...
+                     </div>
+                </div>
+            </div>
+
+            <!-- Center: The Board -->
+            <div id="board-container">
+                <!-- Board generated by JS -->
+            </div>
+            
+            <!-- Right Side: Standings Panel -->
+            <div class="hidden md:flex flex-col w-1/4 h-full bg-gray-800 p-4 rounded-xl border-4 border-yellow-500">
+                <h3 class="bangers-font text-3xl text-center mb-4 text-white drop-shadow-md">Positions</h3>
+                <div id="standings-list" class="space-y-3">
+                    <!-- Standings generated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-victory" class="screen">
+        <h1 class="bangers-font text-6xl text-yellow-400 mb-2 text-center" style="text-shadow: 0 0 20px gold;">MADE IT TO HEAVEN!</h1>
+        <h2 id="winner-name" class="text-4xl font-bold mb-8 uppercase text-white bg-purple-800 px-6 py-2 rounded-lg jojo-border"></h2>
+        
+        <div class="bg-black/80 p-6 rounded-xl border-2 border-gray-500 mb-8 w-80 text-center">
+            <h3 class="text-2xl font-bold mb-4 text-gray-300 border-b border-gray-600 pb-2">Final Standings</h3>
+            <ol id="final-standings" class="text-xl space-y-2 list-decimal list-inside text-left">
+                <!-- Final standings populated here -->
+            </ol>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-4 z-10">
+            <button onclick="tryAgain()" class="jojo-btn py-3 px-6 text-xl font-bold rounded">Try Again</button>
+            <button onclick="returnToMenu()" class="jojo-btn py-3 px-6 text-xl font-bold rounded bg-gray-700 !bg-none border-gray-400">Return to Menu</button>
+        </div>
+    </div>
+
+    <!-- Pause Menu Overlay -->
+    <div id="screen-pause" class="hidden fixed top-0 left-0 w-full h-full bg-black/80 backdrop-blur-sm z-[100] flex-col items-center justify-center">
+        <h2 class="bangers-font text-7xl text-purple-400 mb-8 tracking-widest" style="text-shadow: 0 0 20px purple, 2px 2px 0px white;">PAUSED</h2>
+        <div class="flex flex-col gap-4 w-64 z-10">
+            <button onclick="resumeGame()" class="jojo-btn py-3 px-6 text-2xl font-bold rounded text-center shadow-lg">CONTINUE</button>
+            <button onclick="returnToMenu()" class="jojo-btn py-3 px-6 text-xl font-bold rounded bg-red-800 !bg-none border-white text-center hover:!bg-red-700 shadow-lg">RETURN TO MENU</button>
+        </div>
+    </div>
+
+    <script>
+        // Game State Variables
+        let gameState = {
+            mode: 'ai', // 'ai' or 'friends'
+            diceMode: 'auto', // 'auto' or 'manual'
+            numPlayers: 2,
+            players: [], // Player Object format below
+            currentPlayerIndex: 0,
+            boardSize: 100,
+            specialCells: {},
+            gameActive: false,
+            rankCounter: 1
+        };
+
+        // Explicit Tailwind classes to avoid dynamic compilation issues
+        const characters = [
+            { name: 'Jotaro', hex: '#dc2626', bgClass: 'bg-red-600', borderClass: 'border-red-600', textClass: 'text-red-500', icon: 'fa-hand-fist' },
+            { name: 'Giorno', hex: '#facc15', bgClass: 'bg-yellow-400', borderClass: 'border-yellow-400', textClass: 'text-yellow-400', icon: 'fa-bug' },
+            { name: 'Josuke', hex: '#2563eb', bgClass: 'bg-blue-600', borderClass: 'border-blue-600', textClass: 'text-blue-500', icon: 'fa-heart' },
+            { name: 'Joseph', hex: '#9333ea', bgClass: 'bg-purple-600', borderClass: 'border-purple-600', textClass: 'text-purple-500', icon: 'fa-camera' },
+            { name: 'Jolyne', hex: '#84cc16', bgClass: 'bg-lime-500', borderClass: 'border-lime-500', textClass: 'text-lime-500', icon: 'fa-glasses' },
+            { name: 'Johnny', hex: '#06b6d4', bgClass: 'bg-cyan-500', borderClass: 'border-cyan-500', textClass: 'text-cyan-500', icon: 'fa-horse' },
+            { name: 'Jonathan', hex: '#f97316', bgClass: 'bg-orange-500', borderClass: 'border-orange-500', textClass: 'text-orange-500', icon: 'fa-sun' }
+        ];
+
+        const facts = [
+            "Stands are a visual manifestation of life energy.",
+            "The Golden Arrow grants a Stand or unlocks Requiem.",
+            "Dio's Stand, The World, can stop time.",
+            "Josuke's Crazy Diamond can restore objects and heal.",
+            "Giorno's dream is to become a Gang-Star."
+        ];
+
+        let tempPlayers = [];
+        let selectingPlayerNum = 1;
+        let hasAi = false;
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function startFriendsMode() {
+            showScreen('screen-dice-choice');
+        }
+
+        function selectDiceMode(mode) {
+            gameState.diceMode = mode;
+            showScreen('screen-rivals');
+        }
+
+        function startGameMode(mode) {
+            gameState.mode = mode;
+            if (mode === 'ai') {
+                gameState.diceMode = 'auto'; // AI always uses auto dice
+                setPlayers(2, true); // 1 Player vs 1 AI default
+            }
+        }
+
+        function setPlayers(num, withAi) {
+            gameState.numPlayers = num;
+            hasAi = withAi;
+            tempPlayers = [];
+            selectingPlayerNum = 1;
+            
+            // Reset character selection UI
+            document.querySelectorAll('.char-select').forEach(el => {
+                el.classList.remove('opacity-50', 'pointer-events-none');
+            });
+            
+            updateCharSelectUI();
+            showScreen('screen-character');
+        }
+
+        function updateCharSelectUI() {
+            const heading = document.getElementById('current-player-select');
+            const aiMsg = document.getElementById('ai-selection-msg');
+            
+            if (hasAi && selectingPlayerNum > 1) {
+                heading.innerText = `AI ${selectingPlayerNum - 1}`;
+                aiMsg.classList.remove('hidden');
+                setTimeout(aiChooseCharacter, 1000);
+            } else {
+                heading.innerText = selectingPlayerNum;
+                aiMsg.classList.add('hidden');
+            }
+        }
+
+        function selectCharacter(name) {
+            // Prevent selection if AI is choosing
+            if (hasAi && selectingPlayerNum > 1) return;
+            confirmCharacterSelection(name);
+        }
+
+        function confirmCharacterSelection(name) {
+            // Mark character as selected in the UI
+            const el = document.getElementById(`char-${name}`);
+            if(!el) return;
+            el.classList.add('opacity-50', 'pointer-events-none');
+            
+            const charData = characters.find(c => c.name === name);
+            
+            tempPlayers.push({
+                id: selectingPlayerNum,
+                name: charData.name,
+                bgClass: charData.bgClass,
+                borderClass: charData.borderClass,
+                textClass: charData.textClass,
+                hex: charData.hex,
+                icon: charData.icon,
+                pos: 0,
+                missTurns: 0,
+                extraRolls: 0,
+                isAi: (hasAi && selectingPlayerNum > 1),
+                finishedRank: null
+            });
+
+            selectingPlayerNum++;
+
+            if (selectingPlayerNum > gameState.numPlayers) {
+                finalizeSetup();
+            } else {
+                updateCharSelectUI();
+            }
+        }
+
+        function aiChooseCharacter() {
+            // Filter out already chosen characters
+            const availableChars = characters.filter(c => !tempPlayers.find(p => p.name === c.name));
+            if (availableChars.length > 0) {
+                const choice = availableChars[Math.floor(Math.random() * availableChars.length)];
+                confirmCharacterSelection(choice.name);
+            }
+        }
+
+        function finalizeSetup() {
+            gameState.players = [...tempPlayers];
+            gameState.currentPlayerIndex = 0;
+            gameState.rankCounter = 1;
+
+            // Define Special Cells and their exact thematic Cries!
+            gameState.specialCells = {
+                15: { type: 'orange', name: 'The World', cry: 'MUDAA MUDAA!', effect: 'Miss 2 turns', logic: (p) => p.missTurns += 2 },
+                28: { type: 'red', name: 'Star Platinum', cry: 'ORAA ORAA!', effect: '+2 extra rolls', logic: (p) => p.extraRolls += 2 },
+                35: { type: 'blue', name: 'The Hand', cry: 'ZA HANDO!', effect: 'Move 3 cells back', logic: (p) => movePlayer(p, -3, true) },
+                42: { type: 'green', name: 'Echoes', cry: 'ACT 3 FREEZE!', effect: '+1 extra roll', logic: (p) => p.extraRolls += 1 },
+                50: { type: 'purple', name: 'Hermit Purple', cry: 'OH MY GOD!', effect: 'Move 5 cells forward', logic: (p) => movePlayer(p, 5, true) },
+                10: { type: 'yellow', name: 'Gold Experience', cry: 'WRYYYY!', effect: 'Teleport to Cell 49', logic: (p) => teleportPlayer(p, 49) },
+                20: { type: 'pink', name: 'Crazy Diamond', cry: 'DORARARA!', effect: 'Teleport to Cell 56', logic: (p) => teleportPlayer(p, 56) },
+                75: { type: 'violet', name: 'Killer Queen', cry: 'BITES THE DUST!', effect: 'Teleport to Cell 2', logic: (p) => teleportPlayer(p, 2) },
+                12: { type: 'yellow-green', name: 'Sticky Fingers', cry: 'ARI ARI ARI!', effect: 'Move 8 cells forward', logic: (p) => movePlayer(p, 8, true) },
+                80: { type: 'orange-yellow', name: 'The Fool', cry: 'IGGY!', effect: 'Miss 1 turn', logic: (p) => p.missTurns += 1 },
+                60: { type: 'red-green', name: 'Heaven\'s Door', cry: 'HEAVEN\'S DOOR!', effect: 'Steal next player roll', logic: (p) => stealRoll(p) },
+                70: { type: 'blue-red', name: 'H2U', cry: 'HAIL 2 U!', effect: 'Next player +1 roll', logic: (p) => giveNextPlayerRoll(p) }
+            };
+
+            showLoading();
+        }
+
+        function showLoading() {
+            showScreen('screen-loading');
+            document.getElementById('loading-fact').innerText = facts[Math.floor(Math.random() * facts.length)];
+            
+            setTimeout(() => {
+                gameState.gameActive = true;
+                initBoard();
+                renderPlayers();
+                updateUI();
+                document.getElementById('game-log').innerHTML = '> Game Started...';
+                showScreen('screen-game');
+                log("May the best Stand user win.");
+                checkAiTurn();
+            }, 2500);
+        }
+
+        function initBoard() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+            
+            // Create cells (1 to 100) snake pattern
+            let cellNum = 100;
+            for (let row = 0; row < 10; row++) {
+                let rowCells = [];
+                for (let col = 0; col < 10; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${cellNum}`;
+                    
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'cell-number';
+                    numSpan.innerText = cellNum;
+                    cell.appendChild(numSpan);
+
+                    // Add Special Cell styling
+                    if (gameState.specialCells[cellNum]) {
+                        cell.classList.add(`cell-${gameState.specialCells[cellNum].type}`);
+                        cell.title = `${gameState.specialCells[cellNum].name}: ${gameState.specialCells[cellNum].effect}`;
+                    }
+
+                    if (cellNum === 100) {
+                         cell.classList.add('cell-goal');
+                         cell.innerHTML += '<i class="fa-solid fa-arrow-up text-yellow-600 text-3xl drop-shadow-md"></i>';
+                    }
+
+                    rowCells.push(cell);
+                    cellNum--;
+                }
+                
+                // Snake pattern adjustment
+                if (row % 2 === 0) {
+                     rowCells.reverse().forEach(c => container.appendChild(c));
+                } else {
+                     rowCells.forEach(c => container.appendChild(c));
+                }
+            }
+        }
+
+        function renderPlayers() {
+            // Remove existing chips
+            document.querySelectorAll('.chip').forEach(c => c.remove());
+
+            // Place chips on the board
+            gameState.players.forEach(p => {
+                if (p.finishedRank) return; // Hide finished players
+                
+                const pos = p.pos === 0 ? 1 : p.pos;
+                const targetCell = document.getElementById(`cell-${pos}`);
+                
+                if (targetCell) {
+                    const chip = document.createElement('div');
+                    chip.className = `chip ${p.bgClass} border-2 border-white`;
+                    chip.id = `player-chip-${p.id}`;
+                    chip.innerHTML = `<i class="fa-solid ${p.icon} text-white drop-shadow-md"></i>`;
+                    
+                    if(p.pos === 0) chip.style.opacity = '0.5';
+
+                    targetCell.appendChild(chip);
+                }
+            });
+            updateStandings();
+        }
+
+        async function rollDice() {
+            if (!gameState.gameActive) return;
+            
+            const btn = document.getElementById('btn-roll');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const dice = document.getElementById('dice-display');
+            dice.classList.add('rolling');
+
+            const p = gameState.players[gameState.currentPlayerIndex];
+            
+            // Visual roll effect
+            let rollVal = 1;
+            const rollInterval = setInterval(() => {
+                rollVal = Math.floor(Math.random() * 6) + 1;
+                dice.innerHTML = `<i class="fa-solid fa-dice-${['one','two','three','four','five','six'][rollVal-1]} text-5xl"></i>`;
+            }, 100);
+
+            await new Promise(r => setTimeout(r, 1000));
+            
+            clearInterval(rollInterval);
+            if (!gameState.gameActive) return;
+
+            dice.classList.remove('rolling');
+            
+            // Final actual roll result
+            const finalRoll = Math.floor(Math.random() * 6) + 1;
+            dice.innerHTML = `<i class="fa-solid fa-dice-${['one','two','three','four','five','six'][finalRoll-1]} text-5xl text-purple-600"></i>`;
+            
+            log(`${p.name} rolled a ${finalRoll}.`);
+            
+            await movePlayer(p, finalRoll, false);
+        }
+
+        async function manualRoll(val) {
+            if (!gameState.gameActive) return;
+            
+            const manualControls = document.getElementById('manual-dice-controls');
+            manualControls.classList.add('opacity-50', 'pointer-events-none');
+
+            const dice = document.getElementById('dice-display');
+            dice.innerHTML = `<i class="fa-solid fa-dice-${['one','two','three','four','five','six'][val-1]} text-5xl text-purple-600"></i>`;
+            
+            const p = gameState.players[gameState.currentPlayerIndex];
+            log(`${p.name} manually rolled a ${val}.`);
+            
+            await movePlayer(p, val, false);
+            
+            // Re-enable for the next turn
+            if (gameState.gameActive) {
+                manualControls.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        async function movePlayer(player, amount, isSpecialMove) {
+            if (!gameState.gameActive) return;
+
+            let startPos = player.pos;
+            let endPos = startPos + amount;
+
+            // Exact roll to win mechanic
+            if (endPos > 100) {
+                const bounceBack = endPos - 100;
+                endPos = 100 - bounceBack;
+                log(`${player.name} overshot! Bouncing back to ${endPos}.`);
+            }
+            if (endPos < 1) endPos = 1; // Can't go below start
+
+            player.pos = endPos;
+            renderPlayers(); // Render the new position
+            
+            await new Promise(r => setTimeout(r, 600)); // Pause for user to see landing
+            if (!gameState.gameActive) return;
+
+            // Check if landed on a Special Cell
+            if (!isSpecialMove && gameState.specialCells[endPos]) {
+                const special = gameState.specialCells[endPos];
+                
+                // Show the thematic Battle Cry!
+                showActionText(special.cry);
+                log(`${player.name} triggered ${special.name}! (${special.effect})`);
+                
+                await new Promise(r => setTimeout(r, 2200)); // Wait for animation to finish
+                if (!gameState.gameActive) return;
+                
+                // Apply the special effect logic
+                special.logic(player);
+                
+                // Re-render in case of teleport or movement
+                renderPlayers();
+            }
+
+            checkWin(player);
+        }
+        
+        function teleportPlayer(player, target) {
+            player.pos = target;
+            log(`${player.name} teleported to ${target}!`);
+        }
+
+        function stealRoll(player) {
+            player.extraRolls += 1;
+            let nextIdx = (gameState.currentPlayerIndex + 1) % gameState.numPlayers;
+            let loopCount = 0;
+            // Skip finished players
+            while(gameState.players[nextIdx].finishedRank && loopCount < gameState.numPlayers) {
+                nextIdx = (nextIdx + 1) % gameState.numPlayers;
+                loopCount++;
+            }
+            if(!gameState.players[nextIdx].finishedRank) {
+                 gameState.players[nextIdx].missTurns += 1;
+                 log(`${player.name} stole a turn from ${gameState.players[nextIdx].name}!`);
+            }
+        }
+
+        function giveNextPlayerRoll(player) {
+            let nextIdx = (gameState.currentPlayerIndex + 1) % gameState.numPlayers;
+            let loopCount = 0;
+            while(gameState.players[nextIdx].finishedRank && loopCount < gameState.numPlayers) {
+                nextIdx = (nextIdx + 1) % gameState.numPlayers;
+                loopCount++;
+            }
+            if(!gameState.players[nextIdx].finishedRank) {
+                gameState.players[nextIdx].extraRolls += 1;
+                log(`${player.name} gave an extra turn to ${gameState.players[nextIdx].name}!`);
+            }
+        }
+
+        function showActionText(text) {
+            const el = document.getElementById('action-text');
+            el.innerText = text;
+            
+            // Re-trigger CSS animation
+            el.classList.remove('animate-action');
+            void el.offsetWidth; // Force DOM reflow
+            el.classList.add('animate-action');
+        }
+
+        function checkWin(player) {
+            if (player.pos === 100 && !player.finishedRank) {
+                player.finishedRank = gameState.rankCounter++;
+                log(`*** ${player.name} REACHED HEAVEN! (Rank ${player.finishedRank}) ***`);
+                
+                // Remove player chip from board
+                document.getElementById(`player-chip-${player.id}`)?.remove();
+                
+                // End game if only 1 player is left
+                const activePlayers = gameState.players.filter(p => !p.finishedRank);
+                if (activePlayers.length <= 1) {
+                    if(activePlayers.length === 1) {
+                        activePlayers[0].finishedRank = gameState.rankCounter; // Last place gets last rank
+                    }
+                    setTimeout(endGame, 1000);
+                    return;
+                }
+            }
+            nextTurn();
+        }
+
+        function nextTurn() {
+            if (!gameState.gameActive || gameState.players.length === 0) return;
+            const p = gameState.players[gameState.currentPlayerIndex];
+            
+            if (p.extraRolls > 0 && !p.finishedRank) {
+                p.extraRolls--;
+                log(`${p.name} gets an extra roll!`);
+                finishTurnSetup();
+                return;
+            }
+
+            // Cycle to the next valid player
+            do {
+                gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.numPlayers;
+                let nextP = gameState.players[gameState.currentPlayerIndex];
+                
+                if (nextP.finishedRank) continue; // Skip winners
+
+                if (nextP.missTurns > 0) {
+                    log(`${nextP.name} skips their turn. (${nextP.missTurns} left)`);
+                    nextP.missTurns--;
+                    continue;
+                }
+                
+                break; // Found a valid player to take a turn
+                
+            } while (true);
+
+            finishTurnSetup();
+        }
+
+        function finishTurnSetup() {
+            updateUI();
+            checkAiTurn();
+        }
+
+        function updateUI() {
+            const p = gameState.players[gameState.currentPlayerIndex];
+            
+            const turnChip = document.getElementById('turn-chip');
+            turnChip.className = `w-12 h-12 rounded-full border-2 border-white mb-2 flex items-center justify-center shadow-[0_0_10px_white] ${p.bgClass}`;
+            turnChip.innerHTML = `<i class="fa-solid ${p.icon} text-2xl text-white drop-shadow-md"></i>`;
+            
+            const nameEl = document.getElementById('turn-name');
+            nameEl.innerText = p.name;
+            nameEl.style.color = p.hex;
+
+            const btn = document.getElementById('btn-roll');
+            const manualControls = document.getElementById('manual-dice-controls');
+            
+            if (p.isAi) {
+                // Always hide manual controls for AI
+                btn.classList.remove('hidden');
+                manualControls.classList.add('hidden');
+                manualControls.classList.remove('grid');
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.innerText = "AI THINKING...";
+            } else {
+                if (gameState.diceMode === 'manual') {
+                    // Show 1-6 buttons for manual mode
+                    btn.classList.add('hidden');
+                    manualControls.classList.remove('hidden');
+                    manualControls.classList.add('grid');
+                } else {
+                    // Show standard roll button for auto mode
+                    btn.classList.remove('hidden');
+                    manualControls.classList.add('hidden');
+                    manualControls.classList.remove('grid');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btn.innerText = "ROLL";
+                }
+            }
+        }
+
+        function checkAiTurn() {
+            if (!gameState.gameActive || gameState.players.length === 0) return;
+            const p = gameState.players[gameState.currentPlayerIndex];
+            if (p && p.isAi && !p.finishedRank && gameState.gameActive) {
+                setTimeout(() => {
+                    if (gameState.gameActive) rollDice();
+                }, 1500); // AI thinking delay
+            }
+        }
+
+        function updateStandings() {
+            const list = document.getElementById('standings-list');
+            list.innerHTML = '';
+            
+            // Sort by Rank first, then Position
+            let sorted = [...gameState.players].sort((a, b) => {
+                if(a.finishedRank && !b.finishedRank) return -1;
+                if(!a.finishedRank && b.finishedRank) return 1;
+                if(a.finishedRank && b.finishedRank) return a.finishedRank - b.finishedRank;
+                return b.pos - a.pos;
+            });
+
+            sorted.forEach(p => {
+                const item = document.createElement('div');
+                item.className = `flex items-center gap-2 p-2 bg-gray-700 rounded border-l-4 ${p.borderClass}`;
+                
+                let status = `Pos: ${p.pos}`;
+                if (p.finishedRank) status = `Rank: ${p.finishedRank}`;
+                else if (p.missTurns > 0) status = `Skipping (${p.missTurns})`;
+                
+                item.innerHTML = `
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center ${p.bgClass} text-white text-sm border border-white">
+                        <i class="fa-solid ${p.icon}"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm text-white">${p.name} ${p.isAi ? '(AI)' : ''}</div>
+                        <div class="text-xs text-gray-300">${status}</div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function log(msg) {
+            const logBox = document.getElementById('game-log');
+            logBox.innerHTML += `<div>> ${msg}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function pauseGame() {
+            document.getElementById('screen-pause').classList.remove('hidden');
+            document.getElementById('screen-pause').classList.add('flex');
+        }
+
+        function resumeGame() {
+            document.getElementById('screen-pause').classList.add('hidden');
+            document.getElementById('screen-pause').classList.remove('flex');
+        }
+
+        function endGame() {
+            gameState.gameActive = false;
+            
+            const finalSorted = [...gameState.players].sort((a, b) => a.finishedRank - b.finishedRank);
+            
+            const winner = finalSorted[0];
+            const winnerTitle = document.getElementById('winner-name');
+            winnerTitle.innerText = `${winner.name} WINS!`;
+            winnerTitle.style.color = winner.hex;
+            
+            const standingsList = document.getElementById('final-standings');
+            standingsList.innerHTML = '';
+            
+            finalSorted.forEach(p => {
+                standingsList.innerHTML += `<li class="mb-2 text-white"><span class="font-bold ${p.textClass}">${p.name}</span></li>`;
+            });
+
+            showScreen('screen-victory');
+        }
+
+        // Properly resets the game and keeps the same characters
+        function tryAgain() {
+            gameState.gameActive = false; // Prevent ongoing animations from continuing
+            
+            gameState.players.forEach(p => {
+                p.pos = 0;
+                p.missTurns = 0;
+                p.extraRolls = 0;
+                p.finishedRank = null;
+            });
+            
+            gameState.currentPlayerIndex = 0;
+            gameState.rankCounter = 1;
+            
+            showLoading(); // Transitions smoothly back into the game
+        }
+
+        // Hard resets states and goes back to the Main Menu
+        function returnToMenu() {
+            resumeGame(); // Ensure pause screen is hidden when returning to menu
+            
+            gameState.players = [];
+            gameState.currentPlayerIndex = 0;
+            gameState.gameActive = false;
+            gameState.rankCounter = 1;
+            tempPlayers = [];
+            selectingPlayerNum = 1;
+            
+            // Un-dim all characters on the select screen
+            document.querySelectorAll('.char-select').forEach(el => {
+                el.classList.remove('opacity-50', 'pointer-events-none');
+            });
+            
+            showScreen('screen-menu');
+        }
+    </script>
+</body>
+</html>
