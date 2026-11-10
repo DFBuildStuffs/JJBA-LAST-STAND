@@ -12,6 +12,7 @@ import {
   DangerAheadInfo,
   StanceType,
   StandClashData,
+  AiDifficulty,
 } from './types/game';
 import { CHARACTERS } from './data/characters';
 import { SPECIAL_CELLS } from './data/specialCells';
@@ -82,10 +83,16 @@ export default function App() {
   const [activeStandVFX, setActiveStandVFX] = useState<StandVFXData | null>(null);
   const [isScreenShaking, setIsScreenShaking] = useState<boolean>(false);
 
-  // New Thrilling Gameplay State
+  // Gameplay State & AI Difficulty
   const [currentStance, setCurrentStance] = useState<StanceType>('rush');
+  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('normal');
   const [clashData, setClashData] = useState<StandClashData | null>(null);
   const [dangerAhead, setDangerAhead] = useState<DangerAheadInfo | null>(null);
+
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const aiDifficultyRef = useRef<AiDifficulty>(aiDifficulty);
+  aiDifficultyRef.current = aiDifficulty;
 
   const playersRef = useRef<Player[]>([]);
   playersRef.current = players;
@@ -93,6 +100,21 @@ export default function App() {
   currentIdxRef.current = currentPlayerIndex;
   const isTurnBusyRef = useRef<boolean>(false);
   isTurnBusyRef.current = isTurnBusy;
+
+  // Fully purge all visual dialogue, stickers, banners, and battle effects when exiting to menu
+  const handleReturnToMenu = useCallback(() => {
+    sound.stopAmbience();
+    characterVoiceAudio.stopAllVoiceAudio();
+    setActiveBanner(null);
+    setActiveSticker(null);
+    setActiveVoiceCallout(null);
+    setActiveStandVFX(null);
+    setClashData(null);
+    setSelectedCellInfo(null);
+    setIsTurnBusy(false);
+    setIsDiceRolling(false);
+    setScreen('menu');
+  }, []);
 
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const newEntry: LogEntry = {
@@ -208,7 +230,7 @@ export default function App() {
         return;
       }
 
-      // Decrement cooldowns and recover energy
+      // Decrement cooldowns and recover energy (balanced AI energy gain)
       setPlayers((prev) =>
         prev.map((p, idx) => {
           if (idx === candidate) {
@@ -219,7 +241,7 @@ export default function App() {
             return {
               ...p,
               abilityCooldowns: updatedCooldowns,
-              sp: Math.min(p.maxSp, p.sp + 12),
+              sp: Math.min(p.maxSp, p.sp + (p.isAi ? 8 : 12)),
               buffs: {
                 ...p.buffs,
                 shieldTurns: Math.max(0, p.buffs.shieldTurns - 1),
@@ -236,10 +258,10 @@ export default function App() {
     [addLog]
   );
 
-  // Check if landing triggers a Stand Clash with another player
+  // Check if landing triggers a Stand Clash with another player (only on exact same tile!)
   const checkForStandClash = (activeP: Player, landingPos: number): Player | null => {
     const rivals = playersRef.current.filter(
-      (r) => r.id !== activeP.id && r.finishedRank === null && Math.abs(r.pos - landingPos) <= 1
+      (r) => r.id !== activeP.id && r.finishedRank === null && r.pos === landingPos
     );
     return rivals.length > 0 ? rivals[0] : null;
   };
@@ -360,6 +382,7 @@ export default function App() {
                 defenderScore: 50,
                 timeLeft: 4.0,
                 winnerId: null,
+                difficulty: aiDifficultyRef.current,
               });
             }
 
@@ -646,42 +669,18 @@ export default function App() {
       addLog(`[CRITICAL STAND ACE] ${activePlayer.name}'s signature Stand Emblem was rolled! "${activePlayer.character.standCry}"`, 'stand');
     }
 
-    // Compute tactical distance based on selected Stance:
-    let moveDistance = val;
-    if (currentStance === 'rush') {
-      // ORA Rush: extra +2 boost for fast-paced gameplay!
-      moveDistance = val + 2;
-      addLog(`${activePlayer.name} dashed with ORA Rush! Rolled ${val} (+2 boost = ${moveDistance} tiles).`, 'buff');
-    } else if (currentStance === 'guard') {
-      // Hamon Guard: Move 1-3 safe tiles with shield and +20 SP
-      moveDistance = Math.min(3, Math.max(1, Math.ceil(val / 2)));
-      addLog(`${activePlayer.name} adopted Hamon Guard! Moved ${moveDistance} safe tiles & gained Stand Shield.`, 'buff');
-      setPlayers((prev) =>
-        prev.map((p, idx) =>
-          idx === currentIdxRef.current
-            ? {
-                ...p,
-                sp: Math.min(p.maxSp, p.sp + 20),
-                buffs: { ...p.buffs, shieldTurns: 2 },
-              }
-            : p
-        )
-      );
-    } else {
-      addLog(`${activePlayer.name} rolled a ${val}.`, 'info');
-    }
+    // Authentic movement distance matches the rolled dice value!
+    const moveDistance = val;
+    addLog(`${activePlayer.name} rolled a ${val}! Moving forward ${val} ${val === 1 ? 'tile' : 'tiles'}.`, 'info');
 
     await new Promise((r) => setTimeout(r, 450));
+    if (screenRef.current !== 'playing') return;
     await animatePlayerMovement(activePlayer.id, activePlayer.pos + moveDistance);
   };
 
   const handleRollDice = () => {
     const rolled = Math.floor(Math.random() * 6) + 1;
     executeRoll(rolled);
-  };
-
-  const handleManualRoll = (val: number) => {
-    executeRoll(val);
   };
 
   // Stand Ability Card activation
@@ -828,36 +827,45 @@ export default function App() {
     }
 
     const aiTimer = setTimeout(() => {
-      // Re-verify turn validity before rolling
-      if (!isTurnBusyRef.current) {
-        // AI chooses whether to activate an ability
-        const usableAbilities = activeP.character.abilities.filter((ab) => {
-          const cd = activeP.abilityCooldowns[ab.id] || 0;
-          return activeP.sp >= ab.spCost && cd === 0;
-        });
+      // Re-verify turn validity and ensure screen is still actively playing
+      if (screenRef.current !== 'playing' || isTurnBusyRef.current) return;
 
-        if (usableAbilities.length > 0 && Math.random() < 0.5) {
-          const chosen = usableAbilities[Math.floor(Math.random() * usableAbilities.length)];
-          handleUseAbility(chosen);
-          setTimeout(() => {
+      const diff = aiDifficultyRef.current;
+      const abilityThreshold = diff === 'easy' ? 0.20 : diff === 'hard' ? 0.45 : 0.30;
+      const minSpThreshold = diff === 'easy' ? 60 : 35;
+
+      // AI chooses whether to activate an ability
+      const usableAbilities = activeP.character.abilities.filter((ab) => {
+        const cd = activeP.abilityCooldowns[ab.id] || 0;
+        return activeP.sp >= ab.spCost && cd === 0 && activeP.sp >= minSpThreshold;
+      });
+
+      if (usableAbilities.length > 0 && Math.random() < abilityThreshold) {
+        const chosen = usableAbilities[Math.floor(Math.random() * usableAbilities.length)];
+        handleUseAbility(chosen);
+        setTimeout(() => {
+          if (screenRef.current === 'playing') {
             handleRollDice();
-          }, 1800);
-        } else {
-          // Direct dice roll
-          handleRollDice();
-        }
+          }
+        }, 1800);
+      } else {
+        // Direct dice roll
+        handleRollDice();
       }
     }, 1100);
 
     return () => clearTimeout(aiTimer);
-  }, [currentPlayerIndex, isTurnBusy, screen]); // Clean minimal dependencies!
+  }, [currentPlayerIndex, isTurnBusy, screen]);
 
-  // Start Standard Game with configuration
+  // Start Standard Game with configuration & AI difficulty
   const handleStartGame = (
     mode: GameMode,
     dMode: DiceMode,
-    configs: Array<{ name: string; character: Character; isAi: boolean }>
+    configs: Array<{ name: string; character: Character; isAi: boolean }>,
+    difficulty: AiDifficulty = 'normal'
   ) => {
+    setAiDifficulty(difficulty);
+    aiDifficultyRef.current = difficulty;
     const initializedPlayers: Player[] = configs.map((cfg, idx) => ({
       id: idx + 1,
       name: cfg.name,
@@ -923,7 +931,7 @@ export default function App() {
         character: p.character,
         isAi: p.isAi,
       }));
-      handleStartGame(gameMode, diceMode, configs);
+      handleStartGame(gameMode, diceMode, configs, aiDifficulty);
     } else {
       setScreen('character-select');
     }
@@ -987,9 +995,9 @@ export default function App() {
             dangerAhead={dangerAhead}
             currentStance={currentStance}
             currentZone={currentZone}
+            aiDifficulty={aiDifficulty}
             onSelectStance={(st) => setCurrentStance(st)}
             onRollDice={handleRollDice}
-            onManualRoll={handleManualRoll}
             onToggleSound={() => {
               const muted = sound.toggleMute();
               setSoundEnabled(!muted);
@@ -1007,11 +1015,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Stand Clash Rapid Mash Minigame Modal */}
-      <StandClashModal clashData={clashData} onResolveClash={handleResolveClash} />
+      {/* Stand Clash Rapid Mash Minigame Modal — Only active during gameplay */}
+      {screen === 'playing' && (
+        <StandClashModal clashData={clashData} onResolveClash={handleResolveClash} />
+      )}
 
       {/* Selected Cell Modal */}
-      {selectedCellInfo && (
+      {screen === 'playing' && selectedCellInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="bg-slate-950 border-2 border-yellow-500 rounded-xl p-4 max-w-sm w-full shadow-2xl jojo-box-gold">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
@@ -1060,11 +1070,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Dramatic Comic Action Lettering Banner */}
-      <ActionBanner banner={activeBanner} />
+      {/* Dramatic Comic Action Lettering Banner — Only during gameplay */}
+      {screen === 'playing' && <ActionBanner banner={activeBanner} />}
 
-      {/* Custom Anime Character Move Sticker Popup */}
-      <MoveSticker sticker={activeSticker} />
+      {/* Custom Anime Character Move Sticker Popup — Only during gameplay */}
+      {screen === 'playing' && <MoveSticker sticker={activeSticker} />}
 
       {/* Pre-Game Stand Awakening Loading Screen */}
       {screen === 'loading' && (
@@ -1105,11 +1115,7 @@ export default function App() {
         onRequestExit={() => {
           setIsExitWarningOpen(true);
         }}
-        onReturnToMenu={() => {
-          sound.stopAmbience();
-          characterVoiceAudio.stopAllVoiceAudio();
-          setScreen('menu');
-        }}
+        onReturnToMenu={handleReturnToMenu}
         onConfirmStartGame={handleStartGame}
         onPlayAgain={handleRestartMatch}
         onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1120,9 +1126,7 @@ export default function App() {
         isOpen={isExitWarningOpen}
         onConfirmExit={() => {
           setIsExitWarningOpen(false);
-          sound.stopAmbience();
-          characterVoiceAudio.stopAllVoiceAudio();
-          setScreen('menu');
+          handleReturnToMenu();
           addLog('Match abandoned by player. Returned to title menu.', 'hazard');
         }}
         onCancel={() => setIsExitWarningOpen(false)}
@@ -1144,8 +1148,8 @@ export default function App() {
         onToggleBgm={() => sound.toggleBgm()}
       />
 
-      {/* Character Voice & Anime Dialogue Callout */}
-      {activeVoiceCallout && (
+      {/* Character Voice & Anime Dialogue Callout — Only during active gameplay */}
+      {screen === 'playing' && activeVoiceCallout && (
         <CharacterVoiceCallout
           activeLine={activeVoiceCallout.line}
           characterName={activeVoiceCallout.character.name}
@@ -1155,11 +1159,13 @@ export default function App() {
         />
       )}
 
-      {/* High-Impact Stand Ability Activation VFX & Particle Explosion */}
-      <StandActivationVFX
-        vfx={activeStandVFX}
-        onComplete={() => setActiveStandVFX(null)}
-      />
+      {/* High-Impact Stand Ability Activation VFX — Only during active gameplay */}
+      {screen === 'playing' && (
+        <StandActivationVFX
+          vfx={activeStandVFX}
+          onComplete={() => setActiveStandVFX(null)}
+        />
+      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Character, GameMode, DiceMode, Player } from '../types/game';
+import { Character, GameMode, DiceMode, Player, AiDifficulty } from '../types/game';
 import { CHARACTERS } from '../data/characters';
-import { Play, Users, RotateCcw, Settings, LogOut, Bot, Sparkles, Shuffle, Swords, UserCheck } from 'lucide-react';
+import { Play, Users, RotateCcw, Settings, LogOut, Bot, Sparkles, Shuffle, Swords, UserCheck, Dices } from 'lucide-react';
 import { sound } from '../services/audio';
 import { getCharacterDiceTheme } from '../services/diceTheming';
 
@@ -22,7 +22,8 @@ interface MenuScreensProps {
   onConfirmStartGame: (
     mode: GameMode,
     diceMode: DiceMode,
-    playerConfigs: Array<{ name: string; character: Character; isAi: boolean }>
+    playerConfigs: Array<{ name: string; character: Character; isAi: boolean }>,
+    aiDifficulty?: AiDifficulty
   ) => void;
   onPlayAgain: () => void;
   onOpenSettings?: () => void;
@@ -44,8 +45,8 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
 }) => {
   // Character Select state
   const [selectedNumPlayers, setSelectedNumPlayers] = useState<number>(2);
-  const [selectedDiceMode, setSelectedDiceMode] = useState<DiceMode>('auto');
   const [isAiMode, setIsAiMode] = useState<boolean>(true);
+  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('normal');
   const [activeSlotIndex, setActiveSlotIndex] = useState<number>(0);
   const [selectedCharacters, setSelectedCharacters] = useState<Character[]>([
     CHARACTERS[0], // Jotaro
@@ -228,8 +229,8 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
   // Helper to pick random AI rival
   const handleRandomizeAi = (slotIdx: number) => {
     sound.playStandSummon();
-    const currentExclude = selectedCharacters.filter((_, idx) => idx !== slotIdx);
-    const available = CHARACTERS.filter((c) => !currentExclude.some((e) => e.id === c.id));
+    const currentExclude = selectedCharacters.filter((_: Character, idx: number) => idx !== slotIdx);
+    const available = CHARACTERS.filter((c: Character) => !currentExclude.some((e: Character) => e.id === c.id));
     if (available.length > 0) {
       const randomChar = available[Math.floor(Math.random() * available.length)];
       const updated = [...selectedCharacters];
@@ -312,29 +313,52 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-300">Dice Mode:</span>
-            <button
-              onClick={() => setSelectedDiceMode('auto')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                selectedDiceMode === 'auto'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              Standard Roll
-            </button>
-            <button
-              onClick={() => setSelectedDiceMode('manual')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                selectedDiceMode === 'manual'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              Tactical Pick (1-6)
-            </button>
-          </div>
+          {isAiMode ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-slate-300">AI Difficulty:</span>
+              <button
+                type="button"
+                onClick={() => setAiDifficulty('easy')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  aiDifficulty === 'easy'
+                    ? 'bg-emerald-600 text-white shadow ring-1 ring-emerald-400'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="Easy: Relaxed AI with moderate moves & lower ability rate"
+              >
+                Easy
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiDifficulty('normal')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  aiDifficulty === 'normal'
+                    ? 'bg-yellow-500 text-slate-950 font-black shadow ring-1 ring-yellow-300'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="Normal: Balanced Stand User match"
+              >
+                Normal
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiDifficulty('hard')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  aiDifficulty === 'hard'
+                    ? 'bg-red-600 text-white shadow ring-1 ring-red-400'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="Hard: Tough challenge for veteran Stand users"
+              >
+                Hard
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-yellow-300 font-mono bg-slate-950/60 px-3 py-1 rounded-lg border border-slate-800">
+              <Dices className="w-3.5 h-3.5 text-yellow-400" />
+              <span>Standard 6-Sided Roll (1-6)</span>
+            </div>
+          )}
         </div>
 
         {/* Solo Mode: Iconic Rivalries Quick Setup */}
@@ -496,7 +520,7 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 flex-1 mb-4 sm:mb-6">
           {CHARACTERS.map((char) => {
             const isAssignedToActiveSlot = selectedCharacters[activeSlotIndex]?.id === char.id;
-            const assignedSlotIndex = selectedCharacters.findIndex((c) => c?.id === char.id);
+            const assignedSlotIndex = selectedCharacters.findIndex((c: Character) => c?.id === char.id);
             const isAssignedToUser = assignedSlotIndex === 0;
             const isAssignedToAi = assignedSlotIndex > 0 && isAiMode;
 
@@ -570,7 +594,7 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
             <strong className="text-purple-400 font-bold">
               {selectedCharacters
                 .slice(1, selectedNumPlayers)
-                .map((c) => c?.name)
+                .map((c: Character) => c?.name)
                 .join(' & ')}
             </strong>
           </div>
@@ -578,12 +602,12 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
           <button
             onClick={() => {
               const count = selectedNumPlayers;
-              const configs = selectedCharacters.slice(0, count).map((char, idx) => ({
+              const configs = selectedCharacters.slice(0, count).map((char: Character, idx: number) => ({
                 name: char.name,
                 character: char,
                 isAi: isAiMode ? idx > 0 : false,
               }));
-              onConfirmStartGame(isAiMode ? 'ai' : 'pass-and-play', selectedDiceMode, configs);
+              onConfirmStartGame(isAiMode ? 'ai' : 'pass-and-play', 'auto', configs, aiDifficulty);
             }}
             className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3.5 bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-slate-950 font-bangers text-xl sm:text-2xl rounded-xl shadow-[0_4px_0_#000] border-2 border-white flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95 touch-manipulation"
           >

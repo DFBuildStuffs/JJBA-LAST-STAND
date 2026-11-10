@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import confetti from 'canvas-confetti';
 import { StandClashData } from '../types/game';
 import { sound } from '../services/audio';
 import { Zap, Swords, Trophy, Sparkles } from 'lucide-react';
@@ -47,15 +46,24 @@ export const StandClashModal: React.FC<StandClashModalProps> = ({
       const remaining = Math.max(0, (duration - elapsed) / 1000);
       setTimeLeft(remaining);
 
-      // AI rhythmic auto-mash
+      // AI rhythmic auto-mash (balanced and beatable!)
       if (clashData.defender.isAi || clashData.attacker.isAi) {
-        const aiStrength = Math.random() * 4 + 2.5;
+        const diff = clashData.difficulty || 'normal';
+        const aiStrength =
+          diff === 'easy'
+            ? Math.random() * 1.4 + 0.8
+            : diff === 'hard'
+            ? Math.random() * 2.8 + 1.8
+            : Math.random() * 2.0 + 1.2;
+
+        const aiMultiplier = diff === 'easy' ? 0.22 : diff === 'hard' ? 0.38 : 0.28;
+
         setTugValue((prev) => {
           if (clashData.defender.isAi && !clashData.attacker.isAi) {
-            return Math.max(5, prev - aiStrength * 0.42);
+            return Math.max(5, prev - aiStrength * aiMultiplier);
           }
           if (clashData.attacker.isAi && !clashData.defender.isAi) {
-            return Math.min(95, prev + aiStrength * 0.42);
+            return Math.min(95, prev + aiStrength * aiMultiplier);
           }
           return prev;
         });
@@ -85,15 +93,7 @@ export const StandClashModal: React.FC<StandClashModalProps> = ({
     sound.playClashFinisher();
     sound.playStandCry();
 
-    // Confetti celebration
-    confetti({
-      particleCount: 80,
-      spread: 110,
-      origin: { y: 0.5 },
-      colors: [winner.character.hexColor, '#facc15', '#ffffff', '#ec4899'],
-    });
-
-    // Spawn 3D Three.js Particle Blast
+    // Spawn 3D Three.js Particle Blast (Clean, no annoying confetti)
     init3DParticleBurst(winner.character.hexColor);
 
     // After 1.4s of visual feedback, resolve clash in game state
@@ -245,9 +245,9 @@ export const StandClashModal: React.FC<StandClashModalProps> = ({
 
     setTugValue((prev) => {
       if (!attacker.isAi) {
-        return Math.min(95, prev + 5);
+        return Math.min(95, prev + 7.5);
       } else {
-        return Math.max(5, prev - 5);
+        return Math.max(5, prev - 7.5);
       }
     });
   };

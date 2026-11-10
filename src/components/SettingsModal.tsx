@@ -218,48 +218,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
-                <h3 className="font-bangers text-base text-yellow-400 mb-2">
-                  2. TACTICAL DRIVE STANCES
+                <h3 className="font-bangers text-base text-yellow-400 mb-1">
+                  2. AUTHENTIC 6-SIDED DICE ROLLING
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <div className="p-2 rounded-lg bg-red-950/40 border border-red-700/60">
-                    <div className="flex items-center gap-1 text-red-300 font-bangers text-xs mb-1">
-                      <Flame className="w-3.5 h-3.5 text-yellow-400" />
-                      <span>ORA RUSH</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300">
-                      Sprint forward! Adds a +2 bonus tile distance to your dice roll.
-                    </p>
-                  </div>
-
-                  <div className="p-2 rounded-lg bg-purple-950/40 border border-purple-700/60">
-                    <div className="flex items-center gap-1 text-purple-300 font-bangers text-xs mb-1">
-                      <Crosshair className="w-3.5 h-3.5 text-pink-400" />
-                      <span>PRECISION</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300">
-                      Careful tactical calculation. Move exactly the number rolled without overshoot.
-                    </p>
-                  </div>
-
-                  <div className="p-2 rounded-lg bg-blue-950/40 border border-blue-700/60">
-                    <div className="flex items-center gap-1 text-blue-300 font-bangers text-xs mb-1">
-                      <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>HAMON GUARD</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300">
-                      Move 1-3 safe tiles, deploy a Stand Shield to negate traps, and restore +20 SP!
-                    </p>
-                  </div>
-                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Every player rolls a standard 6-sided die (values 1–6). You move forward the exact number rolled—for example, rolling a 6 from Tile 1 moves you straight to Tile 7! Rolling an Ace (1) unleashes your character's signature Stand Emblem.
+                </p>
               </div>
 
               <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
                 <h3 className="font-bangers text-base text-yellow-400 mb-1">
-                  3. STAND CLASH DUELS
+                  3. STAND ABILITIES & TACTICAL SP
                 </h3>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Landing within 1 tile of a rival triggers an intense 4-second button-mashing Stand Clash! The victor knocks the loser backwards 3 tiles and gains +25 SP.
+                  Use your character's unique Stand Ability cards (such as Star Platinum's Time Stop or Gold Experience's Life Spring) to bypass hazards or hinder opponents. Stand Power (SP) replenishes steadily each turn.
+                </p>
+              </div>
+
+              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
+                <h3 className="font-bangers text-base text-yellow-400 mb-1">
+                  4. STAND CLASH DUELS & BALANCED AI
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Landing on the exact same tile as a rival triggers an intense Stand Clash! Mash the barrage button to overpower them. AI difficulty can be set to Easy, Normal, or Hard for fair, competitive matches.
                 </p>
               </div>
 

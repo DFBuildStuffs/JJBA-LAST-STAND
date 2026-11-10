@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Player, ViewMode, LogEntry, DiceMode, DangerAheadInfo, StanceType } from '../types/game';
+import { Player, ViewMode, LogEntry, DiceMode, DangerAheadInfo, StanceType, AiDifficulty } from '../types/game';
 import { SPECIAL_CELLS } from '../data/specialCells';
 import {
   Eye,
@@ -16,6 +16,7 @@ import {
   Flame,
   Crosshair,
   Heart,
+  Bot,
 } from 'lucide-react';
 import { SoundscapeZone, LOCATION_ZONES } from '../services/audio';
 import { getCharacterDiceTheme } from '../services/diceTheming';
@@ -26,16 +27,17 @@ interface GameHUDProps {
   isTurnBusy: boolean;
   isDiceRolling: boolean;
   lastRoll: number | null;
-  diceMode: DiceMode;
+  diceMode?: DiceMode;
   viewMode: ViewMode;
   soundEnabled: boolean;
   logs: LogEntry[];
   dangerAhead: DangerAheadInfo | null;
-  currentStance: StanceType;
+  currentStance?: StanceType;
   currentZone: SoundscapeZone;
-  onSelectStance: (stance: StanceType) => void;
+  aiDifficulty?: AiDifficulty;
+  onSelectStance?: (stance: StanceType) => void;
   onRollDice: () => void;
-  onManualRoll: (val: number) => void;
+  onManualRoll?: (val: number) => void;
   onToggleSound: () => void;
   onSelectViewMode: (mode: ViewMode) => void;
   onPause: () => void;
@@ -55,6 +57,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   dangerAhead,
   currentStance,
   currentZone,
+  aiDifficulty = 'normal',
   onSelectStance,
   onRollDice,
   onManualRoll,
@@ -112,6 +115,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   <span className="text-xs sm:text-sm font-bold text-white font-bangers tracking-wide truncate max-w-[70px] xs:max-w-[100px] sm:max-w-[150px]">
                     {activePlayer.name} {activePlayer.isAi ? '(AI)' : ''}
                   </span>
+                  {activePlayer.isAi && (
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded uppercase border ${
+                        aiDifficulty === 'easy'
+                          ? 'bg-emerald-950 text-emerald-300 border-emerald-600'
+                          : aiDifficulty === 'hard'
+                          ? 'bg-red-950 text-red-300 border-red-600'
+                          : 'bg-yellow-950 text-yellow-300 border-yellow-600'
+                      }`}
+                    >
+                      {aiDifficulty}
+                    </span>
+                  )}
                   <span className="text-[10px] sm:text-[11px] text-yellow-300 font-mono font-bold bg-slate-900 px-1 sm:px-1.5 py-0.2 rounded border border-slate-700 shrink-0">
                     T{activePlayer.pos}
                   </span>
@@ -356,53 +372,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* PRIMARY DICE CONTROLLER — Pinned firmly to the bottom-right corner */}
       <div className="fixed bottom-3 right-2 sm:bottom-4 sm:right-4 z-40 flex flex-col items-end gap-1.5 sm:gap-2 pointer-events-auto select-none pb-safe">
-        {/* Drive Stance Selector directly above the roll button */}
-        {!activePlayer?.isAi && !isTurnBusy && (
-          <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-950/95 border border-purple-500/80 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl shadow-xl backdrop-blur-md">
-            <button
-              onClick={() => onSelectStance('rush')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl transition-all flex items-center gap-1 cursor-pointer ${
-                currentStance === 'rush'
-                  ? 'bg-gradient-to-r from-red-600 to-orange-500 text-white shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title="Rush (+2 bonus distance)"
-            >
-              <Flame className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-300" />
-              <span>Rush</span>
-            </button>
-
-            <button
-              onClick={() => onSelectStance('precision')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl transition-all flex items-center gap-1 cursor-pointer ${
-                currentStance === 'precision'
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title="Precision (Exact roll)"
-            >
-              <Crosshair className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-pink-300" />
-              <span>Precise</span>
-            </button>
-
-            <button
-              onClick={() => onSelectStance('guard')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl transition-all flex items-center gap-1 cursor-pointer ${
-                currentStance === 'guard'
-                  ? 'bg-gradient-to-r from-sky-600 to-blue-500 text-white shadow-md'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-              title="Guard (Safe move + Shield)"
-            >
-              <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-cyan-300" />
-              <span>Guard</span>
-            </button>
-          </div>
-        )}
-
         {/* The Main Glowing Character-Themed Dice Roll Action Card */}
         <div 
-          className="flex flex-col gap-1 bg-slate-950/95 border-2 sm:border-3 p-1 sm:p-2 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-md transition-all duration-300"
+          className="flex flex-col gap-1 bg-slate-950/95 border-2 sm:border-3 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-md transition-all duration-300"
           style={{ 
             borderColor: diceTheme.borderColor,
             boxShadow: `0 0 25px ${diceTheme.hudGlow}` 
@@ -427,25 +399,11 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   AI STAND USER ROLLING...
                 </span>
               </div>
-            ) : diceMode === 'manual' ? (
-              <div className="flex items-center gap-1 sm:gap-1.5 p-0.5 sm:p-1">
-                <span className="text-[10px] sm:text-xs font-bangers text-yellow-400 mr-0.5 sm:mr-1">PICK:</span>
-                {[1, 2, 3, 4, 5, 6].map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => onManualRoll(num)}
-                    disabled={isTurnBusy || (activePlayer?.missTurns ?? 0) > 0}
-                    className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-b from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bangers text-base sm:text-xl border-1.5 sm:border-2 border-white disabled:opacity-40 disabled:cursor-not-allowed shadow cursor-pointer active:scale-95 flex items-center justify-center touch-manipulation"
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
             ) : (
               <button
                 onClick={onRollDice}
                 disabled={isTurnBusy || (activePlayer?.missTurns ?? 0) > 0}
-                className={`flex items-center gap-1.5 sm:gap-3 px-3.5 sm:px-6 md:px-8 py-2 sm:py-3 rounded-lg sm:rounded-xl font-bangers text-lg sm:text-2xl md:text-3xl tracking-wider uppercase border-2 sm:border-3 border-white shadow-2xl transition-all active:scale-95 touch-manipulation ${
+                className={`flex items-center gap-1.5 sm:gap-3 px-4 sm:px-7 md:px-8 py-2.5 sm:py-3.5 rounded-lg sm:rounded-xl font-bangers text-lg sm:text-2xl md:text-3xl tracking-wider uppercase border-2 sm:border-3 border-white shadow-2xl transition-all active:scale-95 touch-manipulation ${
                   isTurnBusy || (activePlayer?.missTurns ?? 0) > 0
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed border-slate-700'
                     : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 cursor-pointer shadow-[0_4px_0_#000] hover:shadow-[0_0_25px_rgba(250,204,21,0.8)]'

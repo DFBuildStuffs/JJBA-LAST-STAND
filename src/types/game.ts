@@ -11,6 +11,7 @@ export type CharacterId =
 
 export type AbilityType = 'attack' | 'movement' | 'buff' | 'utility';
 export type StanceType = 'rush' | 'precision' | 'guard' | 'burst';
+export type AiDifficulty = 'easy' | 'normal' | 'hard';
 
 export interface StandAbility {
   id: string;
@@ -98,6 +99,7 @@ export interface StandClashData {
   defenderScore: number;
   timeLeft: number;
   winnerId: number | null;
+  difficulty?: AiDifficulty;
 }
 
 export interface ActionBannerData {

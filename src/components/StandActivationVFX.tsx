@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
 import { Player, StandAbility } from '../types/game';
 import { Zap, Sparkles, Swords, Shield } from 'lucide-react';
 
@@ -38,23 +37,7 @@ export const StandActivationVFX: React.FC<StandActivationVFXProps> = ({ vfx, onC
     const char = vfx.player.character;
     const ability = vfx.ability;
 
-    // 1. Confetti Star/Burst tailored to Character color palette
-    try {
-      confetti({
-        particleCount: 45,
-        spread: 90,
-        origin: { y: 0.5, x: 0.5 },
-        colors: [char.hexColor, char.secondaryHex, char.accentHex, '#ffffff', '#fbbf24'],
-        shapes: ['star', 'circle'],
-        scalar: 1.25,
-        ticks: 90,
-        disableForReducedMotion: true,
-      });
-    } catch {
-      // Fallback if canvas-confetti is unavailable
-    }
-
-    // 2. High-speed Canvas Particle Physics
+    // High-speed Canvas Particle Physics
     const canvas = canvasRef.current;
     if (!canvas) return;
 
