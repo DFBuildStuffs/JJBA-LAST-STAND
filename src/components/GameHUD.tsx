@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Player, ViewMode, LogEntry, DiceMode, DangerAheadInfo, StanceType, AiDifficulty } from '../types/game';
 import { SPECIAL_CELLS } from '../data/specialCells';
 import {
@@ -67,9 +67,66 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onExit,
 }) => {
   const [intelTab, setIntelTab] = useState<'none' | 'standings' | 'logs'>('none');
+  const [hpPulse, setHpPulse] = useState<'gain' | 'loss' | null>(null);
+  const [hpDelta, setHpDelta] = useState<number | null>(null);
+  const [spPulse, setSpPulse] = useState<'gain' | 'loss' | null>(null);
+  const [spDelta, setSpDelta] = useState<number | null>(null);
 
   const activePlayer = players[currentPlayerIndex];
   const diceTheme = getCharacterDiceTheme(activePlayer?.character?.id);
+
+  const prevPlayerIdRef = useRef<number | null>(null);
+  const prevHpRef = useRef<number | null>(null);
+  const prevSpRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!activePlayer) return;
+
+    if (prevPlayerIdRef.current !== activePlayer.id) {
+      prevPlayerIdRef.current = activePlayer.id;
+      prevHpRef.current = activePlayer.hp;
+      prevSpRef.current = activePlayer.sp;
+      setHpPulse(null);
+      setHpDelta(null);
+      setSpPulse(null);
+      setSpDelta(null);
+      return;
+    }
+
+    if (prevHpRef.current !== null && activePlayer.hp !== prevHpRef.current) {
+      const diff = activePlayer.hp - prevHpRef.current;
+      setHpDelta(diff);
+      setHpPulse(diff > 0 ? 'gain' : 'loss');
+      prevHpRef.current = activePlayer.hp;
+
+      const t = setTimeout(() => {
+        setHpPulse(null);
+        setHpDelta(null);
+      }, 850);
+      return () => clearTimeout(t);
+    }
+  }, [activePlayer?.id, activePlayer?.hp]);
+
+  useEffect(() => {
+    if (!activePlayer) return;
+
+    if (prevPlayerIdRef.current !== activePlayer.id) {
+      return;
+    }
+
+    if (prevSpRef.current !== null && activePlayer.sp !== prevSpRef.current) {
+      const diff = activePlayer.sp - prevSpRef.current;
+      setSpDelta(diff);
+      setSpPulse(diff > 0 ? 'gain' : 'loss');
+      prevSpRef.current = activePlayer.sp;
+
+      const t = setTimeout(() => {
+        setSpPulse(null);
+        setSpDelta(null);
+      }, 850);
+      return () => clearTimeout(t);
+    }
+  }, [activePlayer?.id, activePlayer?.sp]);
 
   const getDiceDots = (val: number | null) => {
     if (!val) return diceTheme.badgeSymbol;
@@ -133,28 +190,140 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   </span>
                 </div>
 
-                {/* HP & SP Mini Gauges */}
+                {/* HP & SP Mini Gauges with Dynamic Reactive Pulses */}
                 <div className="flex items-center gap-1.5 sm:gap-2.5">
-                  <div className="flex items-center gap-0.5 sm:gap-1" title={`Willpower: ${activePlayer.hp}/${activePlayer.maxHp}`}>
-                    <Heart className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-500 fill-current" />
-                    <div className="w-8 xs:w-11 sm:w-14 md:w-16 h-1 sm:h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                  {/* Willpower Gauge */}
+                  <div
+                    className={`relative flex items-center gap-0.5 sm:gap-1 transition-all duration-300 ${
+                      hpPulse === 'gain'
+                        ? 'animate-pulse-gain'
+                        : hpPulse === 'loss'
+                        ? 'animate-pulse-loss'
+                        : ''
+                    }`}
+                    title={`Willpower: ${activePlayer.hp}/${activePlayer.maxHp}`}
+                  >
+                    <Heart
+                      className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform duration-300 ${
+                        hpPulse === 'gain'
+                          ? 'text-emerald-400 scale-125'
+                          : hpPulse === 'loss'
+                          ? 'text-red-400 scale-90'
+                          : 'text-red-500'
+                      } fill-current`}
+                    />
+                    <div
+                      className={`w-8 xs:w-11 sm:w-14 md:w-16 h-1 sm:h-1.5 bg-slate-800 rounded-full overflow-hidden border transition-all duration-300 ${
+                        hpPulse === 'gain'
+                          ? 'border-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]'
+                          : hpPulse === 'loss'
+                          ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]'
+                          : 'border-slate-700'
+                      }`}
+                    >
                       <div
-                        className="h-full bg-red-500 transition-all duration-300"
+                        className={`h-full transition-all duration-300 ${
+                          hpPulse === 'gain'
+                            ? 'bg-gradient-to-r from-emerald-400 to-red-400 brightness-125'
+                            : hpPulse === 'loss'
+                            ? 'bg-red-600 brightness-125'
+                            : 'bg-red-500'
+                        }`}
                         style={{ width: `${(activePlayer.hp / activePlayer.maxHp) * 100}%` }}
                       />
                     </div>
-                    <span className="text-[9px] sm:text-[10px] font-mono text-red-400 font-bold">{activePlayer.hp}</span>
+                    <span
+                      className={`text-[9px] sm:text-[10px] font-mono font-bold transition-colors duration-300 ${
+                        hpPulse === 'gain'
+                          ? 'text-emerald-300 font-black'
+                          : hpPulse === 'loss'
+                          ? 'text-red-400 font-black'
+                          : 'text-red-400'
+                      }`}
+                    >
+                      {activePlayer.hp}
+                    </span>
+
+                    {/* Floating delta indicator (+25 or -20) */}
+                    {hpDelta !== null && (
+                      <span
+                        key={`hp-delta-${hpDelta}-${activePlayer.hp}`}
+                        className={`absolute -top-3 left-2 sm:left-3 text-[9px] sm:text-[10px] font-mono font-black pointer-events-none animate-delta-float z-20 px-1 py-0.2 rounded-full shadow ${
+                          hpDelta > 0
+                            ? 'text-emerald-300 bg-emerald-950/90 border border-emerald-500/80'
+                            : 'text-red-300 bg-red-950/90 border border-red-500/80'
+                        }`}
+                      >
+                        {hpDelta > 0 ? `+${hpDelta}` : hpDelta}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-0.5 sm:gap-1" title={`Stand Power: ${activePlayer.sp}/${activePlayer.maxSp}`}>
-                    <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400 fill-current" />
-                    <div className="w-8 xs:w-11 sm:w-14 md:w-16 h-1 sm:h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                  {/* Stand Power Gauge */}
+                  <div
+                    className={`relative flex items-center gap-0.5 sm:gap-1 transition-all duration-300 ${
+                      spPulse === 'gain'
+                        ? 'animate-pulse-gain'
+                        : spPulse === 'loss'
+                        ? 'animate-pulse-loss'
+                        : ''
+                    }`}
+                    title={`Stand Power: ${activePlayer.sp}/${activePlayer.maxSp}`}
+                  >
+                    <Zap
+                      className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform duration-300 ${
+                        spPulse === 'gain'
+                          ? 'text-yellow-300 scale-125'
+                          : spPulse === 'loss'
+                          ? 'text-purple-400 scale-90'
+                          : 'text-yellow-400'
+                      } fill-current`}
+                    />
+                    <div
+                      className={`w-8 xs:w-11 sm:w-14 md:w-16 h-1 sm:h-1.5 bg-slate-800 rounded-full overflow-hidden border transition-all duration-300 ${
+                        spPulse === 'gain'
+                          ? 'border-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]'
+                          : spPulse === 'loss'
+                          ? 'border-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]'
+                          : 'border-slate-700'
+                      }`}
+                    >
                       <div
-                        className="h-full bg-yellow-400 transition-all duration-300"
+                        className={`h-full transition-all duration-300 ${
+                          spPulse === 'gain'
+                            ? 'bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-400 brightness-125'
+                            : spPulse === 'loss'
+                            ? 'bg-gradient-to-r from-purple-500 to-indigo-500 brightness-110'
+                            : 'bg-yellow-400'
+                        }`}
                         style={{ width: `${(activePlayer.sp / activePlayer.maxSp) * 100}%` }}
                       />
                     </div>
-                    <span className="text-[9px] sm:text-[10px] font-mono text-yellow-400 font-bold">{activePlayer.sp}</span>
+                    <span
+                      className={`text-[9px] sm:text-[10px] font-mono font-bold transition-colors duration-300 ${
+                        spPulse === 'gain'
+                          ? 'text-yellow-300 font-black'
+                          : spPulse === 'loss'
+                          ? 'text-purple-300 font-black'
+                          : 'text-yellow-400'
+                      }`}
+                    >
+                      {activePlayer.sp}
+                    </span>
+
+                    {/* Floating delta indicator (+20 or -15) */}
+                    {spDelta !== null && (
+                      <span
+                        key={`sp-delta-${spDelta}-${activePlayer.sp}`}
+                        className={`absolute -top-3 left-2 sm:left-3 text-[9px] sm:text-[10px] font-mono font-black pointer-events-none animate-delta-float z-20 px-1 py-0.2 rounded-full shadow ${
+                          spDelta > 0
+                            ? 'text-yellow-300 bg-yellow-950/90 border border-yellow-500/80'
+                            : 'text-purple-300 bg-purple-950/90 border border-purple-500/80'
+                        }`}
+                      >
+                        {spDelta > 0 ? `+${spDelta}` : spDelta}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

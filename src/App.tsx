@@ -101,6 +101,17 @@ export default function App() {
   const isTurnBusyRef = useRef<boolean>(false);
   isTurnBusyRef.current = isTurnBusy;
 
+  // Synchronously update both React state and playersRef.current to prevent race conditions
+  const setPlayersWithRef = useCallback((updater: (prev: Player[]) => Player[]) => {
+    setPlayers((prev) => {
+      const next = updater(prev);
+      playersRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const handleCellLandingRef = useRef<(playerId: number, cellNumber: number, isSpecialMove: boolean) => Promise<void>>(async () => {});
+
   // Fully purge all visual dialogue, stickers, banners, and battle effects when exiting to menu
   const handleReturnToMenu = useCallback(() => {
     sound.stopAmbience();
@@ -211,7 +222,7 @@ export default function App() {
         addLog(`${nextPlayer.name} is recovering and passes their turn. (${nextPlayer.missTurns} left)`, 'hazard');
         sound.playHazard();
 
-        setPlayers((prev) =>
+        setPlayersWithRef((prev) =>
           prev.map((p, idx) =>
             idx === candidate
               ? {
@@ -231,7 +242,7 @@ export default function App() {
       }
 
       // Decrement cooldowns and recover energy (balanced AI energy gain)
-      setPlayers((prev) =>
+      setPlayersWithRef((prev) =>
         prev.map((p, idx) => {
           if (idx === candidate) {
             const updatedCooldowns: Record<string, number> = {};
@@ -255,7 +266,7 @@ export default function App() {
       setCurrentPlayerIndex(candidate);
       setIsTurnBusy(false);
     },
-    [addLog]
+    [addLog, setPlayersWithRef]
   );
 
   // Check if landing triggers a Stand Clash with another player (only on exact same tile!)
@@ -285,7 +296,7 @@ export default function App() {
       });
 
       // Knock loser back 3 tiles, grant winner +25 SP
-      setPlayers((prev) =>
+      setPlayersWithRef((prev) =>
         prev.map((p) => {
           if (p.id === winnerId) {
             return {
@@ -306,6 +317,74 @@ export default function App() {
       );
     }
   };
+
+  // Check victory / reaching goal (Tile 100)
+  const checkVictoryCondition = useCallback(
+    (playerId: number, finalPos?: number) => {
+      const curList = playersRef.current;
+      const p = curList.find((item) => item.id === playerId);
+      if (!p) return;
+
+      const currentPos = finalPos !== undefined ? finalPos : p.pos;
+      const goalCell = 100;
+      let updatedRankCounter = rankCounter;
+      let newFinishedRank = p.finishedRank;
+
+      if (currentPos === goalCell && newFinishedRank === null) {
+        newFinishedRank = updatedRankCounter;
+        updatedRankCounter++;
+        setRankCounter(updatedRankCounter);
+
+        sound.playVictory();
+        confetti({ particleCount: 160, spread: 100, origin: { y: 0.55 } });
+        triggerVoiceDialogue(p.character, 'clash_win');
+
+        addLog(`*** ${p.name} REACHED TILE 100! (Rank #${newFinishedRank}) ***`, 'win');
+        showBanner(
+          {
+            title: 'MADE IT TO HEAVEN!',
+            subtitle: `${p.name} reached ultimate Stand Ascension at Tile 100!`,
+            cry: 'MADE IN HEAVEN!',
+            characterName: p.name,
+            colorHex: p.character.hexColor,
+            type: 'win',
+          },
+          3000
+        );
+      }
+
+      const updatedList = curList.map((item) =>
+        item.id === playerId ? { ...item, pos: currentPos, finishedRank: newFinishedRank } : item
+      );
+      setPlayersWithRef(() => updatedList);
+
+      const activeRemaining = updatedList.filter((item) => item.finishedRank === null);
+      if (activeRemaining.length <= 1) {
+        if (activeRemaining.length === 1) {
+          activeRemaining[0].finishedRank = updatedRankCounter;
+        }
+        const sorted = [...updatedList].sort((a, b) => (a.finishedRank || 99) - (b.finishedRank || 99));
+        setWinner(sorted[0]);
+        setTimeout(() => setScreen('victory'), 2200);
+        return;
+      }
+
+      if (p.extraRolls > 0 && newFinishedRank === null) {
+        addLog(`${p.name} has an extra roll ready!`, 'stand');
+        setPlayersWithRef((inner) =>
+          inner.map((item) =>
+            item.id === playerId ? { ...item, extraRolls: item.extraRolls - 1 } : item
+          )
+        );
+        setIsTurnBusy(false);
+      } else {
+        setTimeout(() => {
+          advanceTurn((currentIdxRef.current + 1) % updatedList.length);
+        }, 700);
+      }
+    },
+    [addLog, advanceTurn, rankCounter, setPlayersWithRef, showBanner, triggerVoiceDialogue]
+  );
 
   // Step-by-step movement animation
   const animatePlayerMovement = useCallback(
@@ -332,14 +411,16 @@ export default function App() {
 
         const steps = Math.abs(end - start);
         if (steps === 0) {
-          setTimeout(() => {
-            handleCellLanding(playerId, end, isSpecialMove);
+          setTimeout(async () => {
+            if (handleCellLandingRef.current) {
+              await handleCellLandingRef.current(playerId, end, isSpecialMove);
+            }
             resolve();
           }, 250);
           return;
         }
 
-        // Trigger iconic JoJo Move SFX & Character Anime Sticker on every move!
+        // Trigger iconic JoJo Move SFX & Character Anime Sticker on move
         sound.playJoJoMoveSound(currentP.character.id);
         const sloganCandidates = [
           currentP.character.standCry,
@@ -359,17 +440,25 @@ export default function App() {
         const stepDir = end > start ? 1 : -1;
         let curStep = 0;
 
+        // For special moves (warps, slides, shortcuts), hop faster so long distances look snappy & dynamic
+        const hopSpeed = isSpecialMove ? Math.max(25, Math.min(75, Math.floor(1000 / steps))) : 120;
+
         const hopInterval = setInterval(() => {
           curStep++;
           const intermediate = start + curStep * stepDir;
           sound.playStepHop();
 
-          setPlayers((inner) =>
+          setPlayersWithRef((inner) =>
             inner.map((p) => (p.id === playerId ? { ...p, pos: intermediate } : p))
           );
 
           if (curStep >= steps) {
             clearInterval(hopInterval);
+
+            // Ensure exact final position is set in both state and ref
+            setPlayersWithRef((inner) =>
+              inner.map((p) => (p.id === playerId ? { ...p, pos: end } : p))
+            );
 
             // Check if passed near a rival to trigger Stand Clash!
             const rivalForClash = checkForStandClash(currentP, end);
@@ -386,268 +475,283 @@ export default function App() {
               });
             }
 
-            setTimeout(() => {
-              handleCellLanding(playerId, end, isSpecialMove);
+            setTimeout(async () => {
+              if (handleCellLandingRef.current) {
+                await handleCellLandingRef.current(playerId, end, isSpecialMove);
+              }
               resolve();
-            }, 350);
+            }, 300);
           }
-        }, 120);
+        }, hopSpeed);
       });
     },
-    [addLog]
+    [addLog, checkForStandClash, setPlayersWithRef]
   );
 
   // Cell landing effect resolution
-  const handleCellLanding = (playerId: number, cellNumber: number, isSpecialMove: boolean) => {
-    const special = SPECIAL_CELLS[cellNumber];
-    const currentP = playersRef.current.find((p) => p.id === playerId);
-    if (!currentP) return;
+  const handleCellLanding = useCallback(
+    async (playerId: number, cellNumber: number, isSpecialMove: boolean): Promise<void> => {
+      const special = SPECIAL_CELLS[cellNumber];
+      const currentP = playersRef.current.find((p) => p.id === playerId);
+      if (!currentP) return;
 
-    const maxGoal = 100;
+      const maxGoal = 100;
 
-    // Shield protection
-    if (special?.isHazard && currentP.buffs.shieldTurns > 0) {
-      addLog(`${currentP.name}'s Stand Barrier neutralized the trap on Cell ${cellNumber}!`, 'buff');
-      showBanner({
-        title: 'BARRIER PROTECT',
-        subtitle: 'Hazard negated by Hamon Barrier!',
-        cry: 'STAND BARRIER!',
-        characterName: currentP.name,
-        colorHex: currentP.character.hexColor,
-        type: 'buff',
-      });
-      checkVictoryCondition(playerId);
-      return;
-    }
+      // 1. If arriving from a warp/slide or if there is no special cell on this tile
+      if (isSpecialMove || !special) {
+        checkVictoryCondition(playerId, cellNumber);
+        return;
+      }
 
-    if (special && !isSpecialMove) {
-      addLog(`${currentP.name} triggered ${special.name}: ${special.effectLabel}`, special.isHazard ? 'hazard' : 'stand');
+      // 2. Hamon Shield protection for hazards
+      if (special.isHazard && currentP.buffs.shieldTurns > 0) {
+        addLog(`${currentP.name}'s Stand Barrier neutralized [${special.name}]!`, 'buff');
+        sound.playStandSummon();
+        showBanner({
+          title: 'BARRIER PROTECT',
+          subtitle: `Hamon Barrier neutralized [${special.name}]!`,
+          cry: 'STAND BARRIER!',
+          characterName: currentP.name,
+          colorHex: currentP.character.hexColor,
+          type: 'buff',
+        });
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, buffs: { ...p.buffs, shieldTurns: Math.max(0, p.buffs.shieldTurns - 1) } }
+              : p
+          )
+        );
+        checkVictoryCondition(playerId, cellNumber);
+        return;
+      }
+
+      // 3. Trigger special cell dialogue, sounds, and action banner
+      addLog(
+        `${currentP.name} landed on Cell ${cellNumber} [${special.name}]: ${special.effectLabel}`,
+        special.isHazard ? 'hazard' : 'stand'
+      );
       triggerVoiceDialogue(currentP.character, 'special_cell');
 
-      showBanner({
-        title: special.name,
-        subtitle: special.effectLabel,
-        cry: special.cry,
-        characterName: currentP.name,
-        colorHex: special.colorHex,
-        type: special.isHazard ? 'hazard' : 'warp',
-      });
+      showBanner(
+        {
+          title: special.name,
+          subtitle: special.effectLabel,
+          cry: special.cry,
+          characterName: currentP.name,
+          colorHex: special.colorHex,
+          type: special.isHazard ? 'hazard' : 'warp',
+        },
+        2500
+      );
 
       if (special.isHazard) {
         sound.playHazard();
-        // Deal Willpower damage
-        setPlayers((prev) =>
-          prev.map((p) => (p.id === playerId ? { ...p, hp: Math.max(15, p.hp - 25) } : p))
+        // Deal hazard damage
+        setPlayersWithRef((prev) =>
+          prev.map((p) => (p.id === playerId ? { ...p, hp: Math.max(15, p.hp - 20) } : p))
         );
       } else {
         sound.playStandSummon();
       }
 
-      setTimeout(() => {
-        if (cellNumber === 5) {
-          // Speedwagon Sledgehammer - restores 35 HP & 20 SP
-          sound.playStandSummon();
-          setPlayers((prev) =>
-            prev.map((p) =>
-              p.id === playerId
-                ? { ...p, hp: Math.min(p.maxHp, p.hp + 35), sp: Math.min(p.maxSp, p.sp + 20) }
-                : p
-            )
+      // 4. Apply non-movement stat effects
+      if (cellNumber === 5) {
+        // Speedwagon: +35 HP & +20 SP
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, hp: Math.min(p.maxHp, p.hp + 35), sp: Math.min(p.maxSp, p.sp + 20) }
+              : p
+          )
+        );
+      } else if (cellNumber === 15) {
+        // The World: freeze for 2 turns
+        sound.playTimeStop();
+        setPlayersWithRef((prev) =>
+          prev.map((p) => (p.id === playerId ? { ...p, missTurns: p.missTurns + 2 } : p))
+        );
+      } else if (cellNumber === 18) {
+        // Zeppeli Ripple: +30 SP, 2-turn Hamon Shield, +1 extra roll
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? {
+                  ...p,
+                  sp: Math.min(p.maxSp, p.sp + 30),
+                  buffs: { ...p.buffs, shieldTurns: p.buffs.shieldTurns + 2 },
+                  extraRolls: p.extraRolls + 1,
+                }
+              : p
+          )
+        );
+      } else if (cellNumber === 24) {
+        // Silver Chariot: knock back nearest rival ahead by 3 tiles
+        const rivalsAhead = playersRef.current
+          .filter((r) => r.id !== playerId && r.pos > currentP.pos && r.finishedRank === null)
+          .sort((a, b) => a.pos - b.pos);
+        if (rivalsAhead.length > 0) {
+          const target = rivalsAhead[0];
+          const knockedPos = Math.max(1, target.pos - 3);
+          addLog(`SILVER CHARIOT! ${target.name} knocked back to Cell ${knockedPos}!`, 'attack');
+          setPlayersWithRef((prev) =>
+            prev.map((p) => (p.id === target.id ? { ...p, pos: knockedPos } : p))
           );
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 18) {
-          // Zeppeli Ripple - Hamon Barrier & extra roll
-          sound.playStandSummon();
-          setPlayers((prev) =>
-            prev.map((p) =>
-              p.id === playerId
-                ? {
-                    ...p,
-                    buffs: { ...p.buffs, shieldTurns: p.buffs.shieldTurns + 2 },
-                    extraRolls: p.extraRolls + 1,
-                  }
-                : p
-            )
-          );
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 32) {
-          // Magician's Red - Crossfire burn to rival ahead
-          sound.playPunchBarrage();
-          const rivalsAhead = playersRef.current
-            .filter((r) => r.id !== playerId && r.pos > currentP.pos && r.finishedRank === null)
-            .sort((a, b) => a.pos - b.pos);
-          if (rivalsAhead.length > 0) {
-            const target = rivalsAhead[0];
-            addLog(`CROSSFIRE HURRICANE! ${target.name} suffered 25 Burn Damage!`, 'attack');
-            setPlayers((prev) =>
-              prev.map((p) => (p.id === target.id ? { ...p, hp: Math.max(10, p.hp - 25) } : p))
-            );
-          }
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 45) {
-          // Bruford Hair Trap
-          sound.playHazard();
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, missTurns: p.missTurns + 1 } : p))
-          );
-          if (special.targetCell) {
-            const clamped = Math.min(special.targetCell, maxGoal);
-            animatePlayerMovement(playerId, clamped, true);
-          } else {
-            checkVictoryCondition(playerId);
-          }
-        } else if (cellNumber === 85) {
-          // Whitesnake Memory DISC - Reset cooldowns
-          sound.playStandSummon();
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, abilityCooldowns: {} } : p))
-          );
-          if (special.targetCell) {
-            const clamped = Math.min(special.targetCell, maxGoal);
-            animatePlayerMovement(playerId, clamped, true);
-          } else {
-            checkVictoryCondition(playerId);
-          }
-        } else if (cellNumber === 98) {
-          // Made In Heaven - warp to finish line!
-          sound.playVictory();
-          animatePlayerMovement(playerId, maxGoal, true);
-        } else if (special.targetCell) {
-          sound.playWarp();
-          const clamped = Math.min(special.targetCell, maxGoal);
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, pos: clamped } : p))
-          );
-          checkVictoryCondition(playerId);
-        } else if (special.moveOffset) {
-          animatePlayerMovement(playerId, cellNumber + special.moveOffset, true);
-        } else if (cellNumber === 15) {
-          // The World - miss 2 turns
-          sound.playTimeStop();
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, missTurns: p.missTurns + 2 } : p))
-          );
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 28) {
-          // Star Platinum - +2 extra rolls
-          sound.playPunchBarrage();
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, extraRolls: p.extraRolls + 2 } : p))
-          );
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 42) {
-          // Echoes Act 3 Freeze
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, extraRolls: p.extraRolls + 1 } : p))
-          );
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 60) {
-          // Heaven's Door - steal roll
-          setPlayers((prev) => {
-            const nextIdx = (currentIdxRef.current + 1) % prev.length;
-            return prev.map((p, idx) => {
-              if (p.id === playerId) return { ...p, extraRolls: p.extraRolls + 1 };
-              if (idx === nextIdx) return { ...p, missTurns: p.missTurns + 1 };
-              return p;
-            });
-          });
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 70) {
-          // Hail 2 You (H2U) - Give next player an extra roll
-          sound.playStandSummon();
-          setPlayers((prev) => {
-            const nextIdx = (currentIdxRef.current + 1) % prev.length;
-            return prev.map((p, idx) => {
-              if (idx === nextIdx) return { ...p, extraRolls: p.extraRolls + 1 };
-              return p;
-            });
-          });
-          const nextRival = playersRef.current[(currentIdxRef.current + 1) % playersRef.current.length];
-          if (nextRival) {
-            addLog(`HAIL 2 U! ${currentP.name}'s wish granted ${nextRival.name} +1 free roll!`, 'stand');
-          }
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 80) {
-          // The Fool
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, missTurns: p.missTurns + 1 } : p))
-          );
-          checkVictoryCondition(playerId);
-        } else if (cellNumber === 90) {
-          // Stone Mask - +40 SP
-          setPlayers((prev) =>
-            prev.map((p) => (p.id === playerId ? { ...p, sp: Math.min(p.maxSp, p.sp + 40) } : p))
-          );
-          checkVictoryCondition(playerId);
-        } else {
-          checkVictoryCondition(playerId);
         }
-      }, 1600);
-    } else {
-      checkVictoryCondition(playerId);
-    }
-  };
-
-  // Check victory / reaching goal (Tile 100)
-  const checkVictoryCondition = (playerId: number) => {
-    const curList = playersRef.current;
-    const p = curList.find((item) => item.id === playerId);
-    if (!p) return;
-
-    const goalCell = 100;
-    let updatedRankCounter = rankCounter;
-    let newFinishedRank = p.finishedRank;
-
-    if (p.pos === goalCell && newFinishedRank === null) {
-      newFinishedRank = updatedRankCounter;
-      updatedRankCounter++;
-      setRankCounter(updatedRankCounter);
-
-      sound.playVictory();
-      confetti({ particleCount: 160, spread: 100, origin: { y: 0.55 } });
-      triggerVoiceDialogue(p.character, 'clash_win');
-
-      addLog(`*** ${p.name} REACHED TILE 100! (Rank #${newFinishedRank}) ***`, 'win');
-      showBanner({
-        title: 'MADE IT TO HEAVEN!',
-        subtitle: `${p.name} reached ultimate Stand Ascension at Tile 100!`,
-        cry: 'MADE IN HEAVEN!',
-        characterName: p.name,
-        colorHex: p.character.hexColor,
-        type: 'win',
-      }, 3000);
-    }
-
-    const updatedList = curList.map((item) =>
-      item.id === playerId ? { ...item, finishedRank: newFinishedRank } : item
-    );
-    setPlayers(updatedList);
-
-    const activeRemaining = updatedList.filter((item) => item.finishedRank === null);
-    if (activeRemaining.length <= 1) {
-      if (activeRemaining.length === 1) {
-        activeRemaining[0].finishedRank = updatedRankCounter;
+      } else if (cellNumber === 28) {
+        // Star Platinum: +2 extra rolls & +25 SP
+        sound.playPunchBarrage();
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, extraRolls: p.extraRolls + 2, sp: Math.min(p.maxSp, p.sp + 25) }
+              : p
+          )
+        );
+      } else if (cellNumber === 32) {
+        // Magician's Red: Burn 25 HP to rival ahead
+        sound.playPunchBarrage();
+        const rivalsAhead = playersRef.current
+          .filter((r) => r.id !== playerId && r.pos > currentP.pos && r.finishedRank === null)
+          .sort((a, b) => a.pos - b.pos);
+        if (rivalsAhead.length > 0) {
+          const target = rivalsAhead[0];
+          addLog(`CROSSFIRE HURRICANE! ${target.name} suffered 25 Burn Damage!`, 'attack');
+          setPlayersWithRef((prev) =>
+            prev.map((p) => (p.id === target.id ? { ...p, hp: Math.max(10, p.hp - 25) } : p))
+          );
+        }
+      } else if (cellNumber === 38) {
+        // Hierophant Green: +20 SP & +1 roll
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, sp: Math.min(p.maxSp, p.sp + 20), extraRolls: p.extraRolls + 1 }
+              : p
+          )
+        );
+      } else if (cellNumber === 42) {
+        // Echoes Act 3: +1 roll, +15 SP
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, sp: Math.min(p.maxSp, p.sp + 15), extraRolls: p.extraRolls + 1 }
+              : p
+          )
+        );
+      } else if (cellNumber === 45) {
+        // Bruford Hair: miss 1 turn & -15 SP
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, missTurns: p.missTurns + 1, sp: Math.max(0, p.sp - 15) }
+              : p
+          )
+        );
+      } else if (cellNumber === 60) {
+        // Heaven's Door: +1 roll to player, next rival misses turn
+        setPlayersWithRef((prev) => {
+          const nextIdx = (currentIdxRef.current + 1) % prev.length;
+          return prev.map((p, idx) => {
+            if (p.id === playerId) return { ...p, extraRolls: p.extraRolls + 1 };
+            if (idx === nextIdx) return { ...p, missTurns: p.missTurns + 1 };
+            return p;
+          });
+        });
+      } else if (cellNumber === 64) {
+        // Purple Haze: -20 HP, +35 SP
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, hp: Math.max(10, p.hp - 20), sp: Math.min(p.maxSp, p.sp + 35) }
+              : p
+          )
+        );
+      } else if (cellNumber === 70) {
+        // Hail 2 You: grant next player +1 roll
+        setPlayersWithRef((prev) => {
+          const nextIdx = (currentIdxRef.current + 1) % prev.length;
+          return prev.map((p, idx) => {
+            if (idx === nextIdx) return { ...p, extraRolls: p.extraRolls + 1 };
+            return p;
+          });
+        });
+        const nextRival = playersRef.current[(currentIdxRef.current + 1) % playersRef.current.length];
+        if (nextRival) {
+          addLog(`HAIL 2 U! ${currentP.name}'s wish granted ${nextRival.name} +1 free roll!`, 'stand');
+        }
+      } else if (cellNumber === 80) {
+        // The Fool: miss 1 turn
+        setPlayersWithRef((prev) =>
+          prev.map((p) => (p.id === playerId ? { ...p, missTurns: p.missTurns + 1 } : p))
+        );
+      } else if (cellNumber === 85) {
+        // Whitesnake: cooldowns +1
+        setPlayersWithRef((prev) =>
+          prev.map((p) => {
+            if (p.id !== playerId) return p;
+            const updatedCd: Record<string, number> = {};
+            Object.entries(p.abilityCooldowns).forEach(([k, v]) => {
+              updatedCd[k] = v + 1;
+            });
+            return { ...p, abilityCooldowns: updatedCd };
+          })
+        );
+      } else if (cellNumber === 88) {
+        // D4C: cleanse debuffs & shield
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId
+              ? { ...p, missTurns: 0, buffs: { ...p.buffs, shieldTurns: 2 } }
+              : p
+          )
+        );
+      } else if (cellNumber === 90) {
+        // Stone Mask: +40 SP
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId ? { ...p, sp: Math.min(p.maxSp, p.sp + 40) } : p
+          )
+        );
+      } else if (cellNumber === 98) {
+        // Made in Heaven: +2 rolls
+        setPlayersWithRef((prev) =>
+          prev.map((p) =>
+            p.id === playerId ? { ...p, extraRolls: p.extraRolls + 2 } : p
+          )
+        );
       }
-      const sorted = [...updatedList].sort((a, b) => (a.finishedRank || 99) - (b.finishedRank || 99));
-      setWinner(sorted[0]);
-      setTimeout(() => setScreen('victory'), 2200);
-      return;
-    }
 
-    if (p.extraRolls > 0 && newFinishedRank === null) {
-      addLog(`${p.name} has an extra roll ready!`, 'stand');
-      setPlayers((inner) =>
-        inner.map((item) =>
-          item.id === playerId ? { ...item, extraRolls: item.extraRolls - 1 } : item
-        )
-      );
-      setIsTurnBusy(false);
-    } else {
-      setTimeout(() => {
-        advanceTurn((currentIdxRef.current + 1) % updatedList.length);
-      }, 700);
-    }
-  };
+      // 5. Determine movement destination if this special cell has targetCell or moveOffset
+      let destination: number | null = null;
+      if (special.targetCell !== undefined) {
+        destination = Math.min(maxGoal, Math.max(1, special.targetCell));
+      } else if (special.moveOffset !== undefined && special.moveOffset !== 0) {
+        destination = Math.min(maxGoal, Math.max(1, cellNumber + special.moveOffset));
+      }
+
+      // Pause briefly (1000ms) so the player can see the action banner and hear the cry/sfx!
+      await new Promise((r) => setTimeout(r, 1000));
+
+      // If destination exists, animate player to destination!
+      if (destination !== null && destination !== cellNumber) {
+        if (special.isHazard) {
+          sound.playHazard();
+          addLog(`HAZARD! ${currentP.name} was forced to Cell ${destination}!`, 'hazard');
+        } else {
+          sound.playWarp();
+          addLog(`WARP! ${currentP.name} vaulted forward to Cell ${destination}!`, 'stand');
+        }
+        await animatePlayerMovement(playerId, destination, true);
+      } else {
+        // No movement warp/slide, check victory condition directly on this cell
+        checkVictoryCondition(playerId, cellNumber);
+      }
+    },
+    [addLog, animatePlayerMovement, checkVictoryCondition, setPlayersWithRef, showBanner, triggerVoiceDialogue]
+  );
+
+  handleCellLandingRef.current = handleCellLanding;
 
   // Master Dice Execution with Stance mechanics (ORA Rush, Precision, Hamon Guard)
   const executeRoll = async (val: number) => {
@@ -699,7 +803,7 @@ export default function App() {
     setIsScreenShaking(true);
     setTimeout(() => setIsScreenShaking(false), 700);
 
-    setPlayers((prev) =>
+    setPlayersWithRef((prev) =>
       prev.map((item, idx) =>
         idx === currentIdxRef.current
           ? {
@@ -749,7 +853,7 @@ export default function App() {
             const target = rivalsAhead[0];
             const newPos = Math.max(1, target.pos - 4);
             addLog(`${p.name} struck ${target.name}, pushing them back to Cell ${newPos}!`, 'attack');
-            setPlayers((prev) =>
+            setPlayersWithRef((prev) =>
               prev.map((item) => (item.id === target.id ? { ...item, pos: newPos } : item))
             );
           }
@@ -758,7 +862,7 @@ export default function App() {
 
         case 'jotaro_ora_rush':
           sound.playPunchBarrage();
-          setPlayers((prev) =>
+          setPlayersWithRef((prev) =>
             prev.map((item, idx) =>
               idx === currentIdxRef.current ? { ...item, extraRolls: item.extraRolls + 1 } : item
             )
@@ -773,7 +877,7 @@ export default function App() {
 
         case 'giorno_reflect':
         case 'jolyne_mobius':
-          setPlayers((prev) =>
+          setPlayersWithRef((prev) =>
             prev.map((item, idx) =>
               idx === currentIdxRef.current
                 ? { ...item, buffs: { ...item.buffs, shieldTurns: 2 } }
@@ -784,7 +888,7 @@ export default function App() {
 
         case 'josuke_repair':
           sound.playStandSummon();
-          setPlayers((prev) =>
+          setPlayersWithRef((prev) =>
             prev.map((item, idx) =>
               idx === currentIdxRef.current
                 ? { ...item, missTurns: 0, hp: Math.min(item.maxHp, item.hp + 40), pos: Math.min(100, item.pos + 2) }
@@ -800,7 +904,7 @@ export default function App() {
             setIsTimeStopped(false);
             sound.playTimeResume();
           }, 3000);
-          setPlayers((prev) =>
+          setPlayersWithRef((prev) =>
             prev.map((item, idx) =>
               idx === currentIdxRef.current ? { ...item, extraRolls: item.extraRolls + 2 } : item
             )
@@ -893,6 +997,7 @@ export default function App() {
     setGameMode(mode);
     setDiceMode(dMode);
     setPlayers(initializedPlayers);
+    playersRef.current = initializedPlayers;
     setCurrentPlayerIndex(0);
     setRankCounter(1);
     setDiceValue(null);

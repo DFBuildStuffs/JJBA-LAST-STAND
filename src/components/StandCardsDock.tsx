@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Player, StandAbility } from '../types/game';
 import { Zap, Shield, Swords, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -16,6 +16,35 @@ export const StandCardsDock: React.FC<StandCardsDockProps> = ({
   onUseAbility,
 }) => {
   const [isOpen, setIsOpen] = useState(false); // Collapsed by default to keep 3D view clean!
+  const [spPulse, setSpPulse] = useState<'gain' | 'loss' | null>(null);
+  const [spDelta, setSpDelta] = useState<number | null>(null);
+
+  const prevPlayerIdRef = useRef<number>(player.id);
+  const prevSpRef = useRef<number>(player.sp);
+
+  useEffect(() => {
+    if (prevPlayerIdRef.current !== player.id) {
+      prevPlayerIdRef.current = player.id;
+      prevSpRef.current = player.sp;
+      setSpPulse(null);
+      setSpDelta(null);
+      return;
+    }
+
+    if (player.sp !== prevSpRef.current) {
+      const diff = player.sp - prevSpRef.current;
+      setSpDelta(diff);
+      setSpPulse(diff > 0 ? 'gain' : 'loss');
+      prevSpRef.current = player.sp;
+
+      const t = setTimeout(() => {
+        setSpPulse(null);
+        setSpDelta(null);
+      }, 850);
+      return () => clearTimeout(t);
+    }
+  }, [player.id, player.sp]);
+
   const character = player.character;
 
   const getCategoryMeta = (type: string) => {
@@ -75,17 +104,61 @@ export const StandCardsDock: React.FC<StandCardsDockProps> = ({
             </span>
           </div>
 
-          {/* Categorized SP Mini Bar */}
-          <div className="flex items-center gap-1 sm:gap-1.5">
-            <div className="w-10 xs:w-14 sm:w-20 md:w-24 h-1.5 sm:h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+          {/* Categorized SP Mini Bar with subtle reactive pulse */}
+          <div
+            className={`relative flex items-center gap-1 sm:gap-1.5 transition-all duration-300 ${
+              spPulse === 'gain'
+                ? 'animate-pulse-gain'
+                : spPulse === 'loss'
+                ? 'animate-pulse-loss'
+                : ''
+            }`}
+          >
+            <div
+              className={`w-10 xs:w-14 sm:w-20 md:w-24 h-1.5 sm:h-2 bg-slate-800 rounded-full overflow-hidden border transition-all duration-300 ${
+                spPulse === 'gain'
+                  ? 'border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.8)]'
+                  : spPulse === 'loss'
+                  ? 'border-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]'
+                  : 'border-slate-700'
+              }`}
+            >
               <div
-                className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-yellow-400 transition-all duration-300"
+                className={`h-full transition-all duration-300 ${
+                  spPulse === 'gain'
+                    ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 brightness-125'
+                    : spPulse === 'loss'
+                    ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-yellow-500 brightness-110'
+                    : 'bg-gradient-to-r from-purple-500 via-pink-500 to-yellow-400'
+                }`}
                 style={{ width: `${(player.sp / player.maxSp) * 100}%` }}
               />
             </div>
-            <span className="text-[10px] sm:text-[11px] font-mono font-bold text-yellow-300">
+            <span
+              className={`text-[10px] sm:text-[11px] font-mono font-bold transition-colors duration-300 ${
+                spPulse === 'gain'
+                  ? 'text-yellow-200 font-black'
+                  : spPulse === 'loss'
+                  ? 'text-purple-300 font-black'
+                  : 'text-yellow-300'
+              }`}
+            >
               {player.sp} SP
             </span>
+
+            {/* Floating delta indicator (+20 or -15) */}
+            {spDelta !== null && (
+              <span
+                key={`dock-sp-delta-${spDelta}-${player.sp}`}
+                className={`absolute -top-3.5 left-2 sm:left-4 text-[9px] sm:text-[10px] font-mono font-black pointer-events-none animate-delta-float z-30 px-1.5 py-0.2 rounded-full shadow ${
+                  spDelta > 0
+                    ? 'text-yellow-300 bg-yellow-950/90 border border-yellow-500/80'
+                    : 'text-purple-300 bg-purple-950/90 border border-purple-500/80'
+                }`}
+              >
+                {spDelta > 0 ? `+${spDelta}` : spDelta}
+              </span>
+            )}
           </div>
 
           {/* Ready Badge */}
