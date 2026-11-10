@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, ViewMode, LogEntry, DiceMode, DangerAheadInfo, StanceType, AiDifficulty } from '../types/game';
+import { Player, ViewMode, LogEntry, DiceMode, DangerAheadInfo, StanceType, AiDifficulty, GameMode } from '../types/game';
 import { SPECIAL_CELLS } from '../data/specialCells';
 import {
   Eye,
@@ -35,6 +35,9 @@ interface GameHUDProps {
   currentStance?: StanceType;
   currentZone: SoundscapeZone;
   aiDifficulty?: AiDifficulty;
+  gameMode?: GameMode;
+  onlineRoomCode?: string | null;
+  myOnlinePlayerId?: number | null;
   onSelectStance?: (stance: StanceType) => void;
   onRollDice: () => void;
   onManualRoll?: (val: number) => void;
@@ -58,6 +61,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   currentStance,
   currentZone,
   aiDifficulty = 'normal',
+  gameMode = 'ai',
+  onlineRoomCode,
+  myOnlinePlayerId,
   onSelectStance,
   onRollDice,
   onManualRoll,
@@ -329,6 +335,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               </div>
             </div>
           )}
+
+          {/* Online Room Info Badge */}
+          {gameMode === 'online' && onlineRoomCode && (
+            <div className="bg-slate-950/95 border-2 border-purple-500 px-2 sm:px-2.5 py-1 rounded-xl sm:rounded-2xl shadow-xl flex items-center gap-1.5 backdrop-blur-md shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+              <span className="text-[10px] sm:text-xs font-mono font-black text-yellow-300 tracking-wider">
+                ROOM: {onlineRoomCode}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Top Controls: Camera View, Intel, Pause, Settings, Exit */}
@@ -561,7 +577,14 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {activePlayer?.isAi ? (
+            {gameMode === 'online' && myOnlinePlayerId && activePlayer?.id !== myOnlinePlayerId ? (
+              <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-3 bg-purple-950/70 rounded-lg sm:rounded-xl border border-purple-500">
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 animate-spin" />
+                <span className="font-bangers text-sm sm:text-base md:text-lg text-yellow-300 tracking-wide">
+                  WAITING FOR {activePlayer.name.toUpperCase()}...
+                </span>
+              </div>
+            ) : activePlayer?.isAi ? (
               <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-3 bg-purple-950/70 rounded-lg sm:rounded-xl border border-purple-500">
                 <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400 animate-spin" />
                 <span className="font-bangers text-sm sm:text-base md:text-lg text-yellow-300 tracking-wide">
@@ -582,7 +605,13 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                   {getDiceDots(lastRoll)}
                 </span>
                 <span className="whitespace-nowrap">
-                  {isDiceRolling ? 'ROLLING...' : isTurnBusy ? 'MOVE...' : 'ROLL DIE!'}
+                  {isDiceRolling
+                    ? 'ROLLING...'
+                    : isTurnBusy
+                    ? 'MOVE...'
+                    : gameMode === 'online'
+                    ? 'YOUR TURN! ROLL DIE!'
+                    : 'ROLL DIE!'}
                 </span>
                 {lastRoll !== null && (
                   <span className="bg-slate-950 text-yellow-400 px-1.5 sm:px-2.5 py-0.2 sm:py-0.5 rounded sm:rounded-lg text-sm sm:text-xl border sm:border-2 border-yellow-400 font-mono font-black ml-0.5 sm:ml-1">

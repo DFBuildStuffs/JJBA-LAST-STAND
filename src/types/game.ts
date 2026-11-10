@@ -79,10 +79,48 @@ export interface SpecialCell {
   damage?: number;
 }
 
-export type GameMode = 'ai' | 'pass-and-play';
+export type GameMode = 'ai' | 'pass-and-play' | 'online';
 export type DiceMode = 'auto' | 'manual';
 export type ViewMode = '3d-action' | '3d-tactical' | '3d-orbit' | '2d';
 export type BoardLength = 100;
+
+export interface OnlinePlayerInfo {
+  id: number;
+  socketId: string;
+  name: string;
+  characterId: CharacterId;
+  isHost: boolean;
+  isReady: boolean;
+  pos: number;
+  hp: number;
+  maxHp: number;
+  sp: number;
+  maxSp: number;
+  missTurns: number;
+  extraRolls: number;
+  finishedRank: number | null;
+  clashWins: number;
+  buffs: PlayerBuffs;
+  abilityCooldowns: Record<string, number>;
+}
+
+export interface OnlineRoomState {
+  code: string;
+  status: 'lobby' | 'playing' | 'victory';
+  hostSocketId: string;
+  players: OnlinePlayerInfo[];
+  currentPlayerIndex: number;
+  rankCounter: number;
+  diceValue: number | null;
+  isTurnBusy: boolean;
+  clashData: StandClashData | null;
+  winner: OnlinePlayerInfo | null;
+  lastAction?: {
+    type: string;
+    playerId: number;
+    description: string;
+  };
+}
 
 export interface DangerAheadInfo {
   cellNumber: number;

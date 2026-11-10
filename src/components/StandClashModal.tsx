@@ -7,11 +7,17 @@ import { Zap, Swords, Trophy, Sparkles } from 'lucide-react';
 interface StandClashModalProps {
   clashData: StandClashData | null;
   onResolveClash: (winnerId: number, loserId: number) => void;
+  gameMode?: string;
+  myOnlinePlayerId?: number | null;
+  onOnlineClashTap?: (side: 'attacker' | 'defender') => void;
 }
 
 export const StandClashModal: React.FC<StandClashModalProps> = ({
   clashData,
   onResolveClash,
+  gameMode,
+  myOnlinePlayerId,
+  onOnlineClashTap,
 }) => {
   const [tugValue, setTugValue] = useState(50); // 0 (defender wins) to 100 (attacker wins)
   const [timeLeft, setTimeLeft] = useState(4.0);
@@ -242,6 +248,21 @@ export const StandClashModal: React.FC<StandClashModalProps> = ({
     sound.playClashHit();
     setTapEffect(true);
     setTimeout(() => setTapEffect(false), 70);
+
+    if (gameMode === 'online') {
+      const mySide = myOnlinePlayerId === attacker.id ? 'attacker' : 'defender';
+      if (onOnlineClashTap) {
+        onOnlineClashTap(mySide);
+      }
+      setTugValue((prev) => {
+        if (mySide === 'attacker') {
+          return Math.min(95, prev + 6);
+        } else {
+          return Math.max(5, prev - 6);
+        }
+      });
+      return;
+    }
 
     setTugValue((prev) => {
       if (!attacker.isAi) {

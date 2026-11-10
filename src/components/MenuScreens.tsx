@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Character, GameMode, DiceMode, Player, AiDifficulty } from '../types/game';
 import { CHARACTERS } from '../data/characters';
-import { Play, Users, RotateCcw, Settings, LogOut, Bot, Sparkles, Shuffle, Swords, UserCheck, Dices } from 'lucide-react';
+import { Play, Users, RotateCcw, Settings, LogOut, Bot, Sparkles, Shuffle, Swords, UserCheck, Dices, Globe } from 'lucide-react';
 import { sound } from '../services/audio';
 import { getCharacterDiceTheme } from '../services/diceTheming';
 
@@ -13,6 +13,7 @@ interface MenuScreensProps {
   onToggleSound: () => void;
   onStartVsAi: () => void;
   onStartPassAndPlay: () => void;
+  onOpenOnlineLobby?: () => void;
   onOpenRules: () => void;
   onCloseRules: () => void;
   onResume: () => void;
@@ -35,6 +36,7 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
   finalPlayers,
   onStartVsAi,
   onStartPassAndPlay,
+  onOpenOnlineLobby,
   onResume,
   onRestartMatch,
   onReturnToMenu,
@@ -190,30 +192,48 @@ export const MenuScreens: React.FC<MenuScreensProps> = ({
             </div>
           </div>
 
-          {/* Main Action Buttons: Solo Player & Play with Friends */}
-          <div className="flex flex-col gap-3 sm:gap-4 w-72 sm:w-80 max-w-full mx-auto mt-6 sm:mt-8">
-            {/* Button 1: Play Solo Player */}
+          {/* Main Action Buttons: Solo Player, Online Multiplayer & Local Pass & Play */}
+          <div className="flex flex-col gap-2.5 sm:gap-3.5 w-72 sm:w-88 max-w-full mx-auto mt-5 sm:mt-7">
+            {/* Button 1: Play Solo Player (VS AI) */}
             <button
               onClick={() => {
                 setIsAiMode(true);
                 onStartVsAi();
               }}
-              className="flex items-center justify-center gap-2.5 sm:gap-3 py-3 sm:py-4 px-4 sm:px-6 text-xl sm:text-2xl font-bangers tracking-wider uppercase bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 hover:from-purple-500 hover:to-pink-500 text-white border-2 border-white rounded-xl shadow-xl cursor-pointer transition-all active:scale-95 hover:shadow-[0_0_25px_rgba(219,39,119,0.5)] touch-manipulation"
+              className="flex items-center justify-center gap-2.5 sm:gap-3 py-2.5 sm:py-3.5 px-4 sm:px-6 text-lg sm:text-2xl font-bangers tracking-wider uppercase bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 hover:from-purple-500 hover:to-pink-500 text-white border-2 border-white rounded-xl shadow-xl cursor-pointer transition-all active:scale-95 hover:shadow-[0_0_25px_rgba(219,39,119,0.5)] touch-manipulation"
             >
               <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
-              <span>PLAY SOLO PLAYER</span>
+              <span>PLAY SOLO (VS AI)</span>
             </button>
 
-            {/* Button 2: Play with Friends */}
+            {/* Button 2: Play with Friends Online (NEW!) */}
+            <button
+              onClick={() => {
+                if (onOpenOnlineLobby) {
+                  sound.playStandSummon();
+                  onOpenOnlineLobby();
+                }
+              }}
+              className="flex items-center justify-center gap-2.5 sm:gap-3 py-3 sm:py-4 px-4 sm:px-6 text-xl sm:text-2xl font-bangers tracking-wider uppercase bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 border-2 sm:border-3 border-white rounded-xl shadow-2xl cursor-pointer transition-all active:scale-95 hover:shadow-[0_0_30px_rgba(250,204,21,0.8)] touch-manipulation relative group overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
+              <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 animate-pulse" />
+              <span>PLAY WITH FRIENDS ONLINE</span>
+              <span className="text-[10px] font-mono font-black bg-purple-950 text-yellow-300 px-1.5 py-0.5 rounded border border-purple-500 ml-1">
+                LIVE
+              </span>
+            </button>
+
+            {/* Button 3: Pass & Play Local */}
             <button
               onClick={() => {
                 setIsAiMode(false);
                 onStartPassAndPlay();
               }}
-              className="flex items-center justify-center gap-2.5 sm:gap-3 py-3 sm:py-4 px-4 sm:px-6 text-xl sm:text-2xl font-bangers tracking-wider uppercase bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border-2 border-white rounded-xl shadow-xl cursor-pointer transition-all active:scale-95 hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] touch-manipulation"
+              className="flex items-center justify-center gap-2.5 sm:gap-3 py-2.5 sm:py-3.5 px-4 sm:px-6 text-lg sm:text-xl font-bangers tracking-wider uppercase bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white border-2 border-slate-700 hover:border-slate-500 rounded-xl shadow-lg cursor-pointer transition-all active:scale-95 touch-manipulation"
             >
-              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-              <span>PLAY WITH FRIENDS</span>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+              <span>PASS & PLAY (LOCAL)</span>
             </button>
           </div>
         </div>

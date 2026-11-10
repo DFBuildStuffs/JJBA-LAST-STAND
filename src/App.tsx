@@ -32,12 +32,18 @@ import { CharacterVoiceLine, DialogueTrigger } from './data/characterVoiceLines'
 import { StandActivationVFX, StandVFXData } from './components/StandActivationVFX';
 import { ExitWarningModal } from './components/ExitWarningModal';
 import { LoadingScreen } from './components/LoadingScreen';
+import { OnlineLobbyModal } from './components/OnlineLobbyModal';
+import { onlineService } from './services/onlineMultiplayer';
+import { OnlineRoomState } from './types/game';
 
 export default function App() {
   const [screen, setScreen] = useState<
     'menu' | 'character-select' | 'rules' | 'loading' | 'playing' | 'paused' | 'victory'
   >('menu');
   const [isExitWarningOpen, setIsExitWarningOpen] = useState<boolean>(false);
+  const [isOnlineLobbyOpen, setIsOnlineLobbyOpen] = useState<boolean>(false);
+  const [onlineRoomCode, setOnlineRoomCode] = useState<string | null>(null);
+  const [myOnlinePlayerId, setMyOnlinePlayerId] = useState<number | null>(null);
   const [gameMode, setGameMode] = useState<GameMode>('ai');
   const [diceMode, setDiceMode] = useState<DiceMode>('auto');
   const [viewMode, setViewMode] = useState<ViewMode>('3d-action');
@@ -114,6 +120,11 @@ export default function App() {
 
   // Fully purge all visual dialogue, stickers, banners, and battle effects when exiting to menu
   const handleReturnToMenu = useCallback(() => {
+    if (gameMode === 'online') {
+      onlineService.leaveRoom();
+      setOnlineRoomCode(null);
+      setMyOnlinePlayerId(null);
+    }
     sound.stopAmbience();
     characterVoiceAudio.stopAllVoiceAudio();
     setActiveBanner(null);
@@ -125,7 +136,7 @@ export default function App() {
     setIsTurnBusy(false);
     setIsDiceRolling(false);
     setScreen('menu');
-  }, []);
+  }, [gameMode]);
 
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const newEntry: LogEntry = {
@@ -136,6 +147,57 @@ export default function App() {
     };
     setLogs((prev) => [newEntry, ...prev.slice(0, 45)]);
   }, []);
+
+  // Sync real-time online multiplayer socket events
+  useEffect(() => {
+    const unsubRoomUpdate = onlineService.on('room_updated', (room: OnlineRoomState) => {
+      setOnlineRoomCode(room.code);
+      if (onlineService.myPlayerId) {
+        setMyOnlinePlayerId(onlineService.myPlayerId);
+      }
+    });
+
+    const unsubGameStarted = onlineService.on('game_started', (room: OnlineRoomState) => {
+      handleStartOnlineGame(room);
+    });
+
+    const unsubDiceRolled = onlineService.on('dice_rolled', (data: { playerId: number; value: number }) => {
+      const p = playersRef.current.find((item) => item.id === data.playerId);
+      if (p) {
+        executeRoll(data.value);
+      }
+    });
+
+    const unsubClashSync = onlineService.on('clash_sync', (data: any) => {
+      setClashData((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          attackerScore: data.attackerScore ?? prev.attackerScore,
+          defenderScore: data.defenderScore ?? prev.defenderScore,
+          timeLeft: data.timeLeft ?? prev.timeLeft,
+        };
+      });
+    });
+
+    const unsubClashResolved = onlineService.on('clash_resolved', (data: { winnerId: number; loserId: number }) => {
+      handleResolveClash(data.winnerId, data.loserId);
+    });
+
+    const unsubTaunt = onlineService.on('player_taunt', (data: { playerId: number; playerName: string; text: string }) => {
+      addLog(`[TAUNT] ${data.playerName}: "${data.text}"`, 'stand');
+      sound.playStandCry();
+    });
+
+    return () => {
+      unsubRoomUpdate();
+      unsubGameStarted();
+      unsubDiceRolled();
+      unsubClashSync();
+      unsubClashResolved();
+      unsubTaunt();
+    };
+  }, [addLog]);
 
   const triggerVoiceDialogue = useCallback(
     (char: Character, trigger: DialogueTrigger) => {
@@ -279,6 +341,9 @@ export default function App() {
 
   // Resolve Stand Clash
   const handleResolveClash = (winnerId: number, loserId: number) => {
+    if (gameMode === 'online') {
+      onlineService.resolveClash(winnerId, loserId);
+    }
     setClashData(null);
     const winPlayer = playersRef.current.find((p) => p.id === winnerId);
     const losePlayer = playersRef.current.find((p) => p.id === loserId);
@@ -783,6 +848,15 @@ export default function App() {
   };
 
   const handleRollDice = () => {
+    if (gameMode === 'online') {
+      const activeP = playersRef.current[currentIdxRef.current];
+      if (!activeP || activeP.id !== myOnlinePlayerId) {
+        addLog("Not your turn! Waiting for online rival to roll...", "hazard");
+        return;
+      }
+      onlineService.rollDice();
+      return;
+    }
     const rolled = Math.floor(Math.random() * 6) + 1;
     executeRoll(rolled);
   };
@@ -791,6 +865,10 @@ export default function App() {
   const handleUseAbility = (ability: StandAbility) => {
     const p = playersRef.current[currentIdxRef.current];
     if (!p || p.sp < ability.spCost || isTurnBusyRef.current) return;
+
+    if (gameMode === 'online') {
+      onlineService.useAbility(ability);
+    }
 
     sound.playStandCry();
 
@@ -1022,6 +1100,23 @@ export default function App() {
     sound.playTrack(trackToPlay);
   };
 
+  // Start Online Multiplayer Game from Lobby
+  const handleStartOnlineGame = (roomState: OnlineRoomState) => {
+    setIsOnlineLobbyOpen(false);
+    setOnlineRoomCode(roomState.code);
+
+    const configs = roomState.players.map((p) => {
+      const charObj = CHARACTERS.find((c) => c.id === p.characterId) || CHARACTERS[0];
+      return {
+        name: p.name,
+        character: charObj,
+        isAi: false,
+      };
+    });
+
+    handleStartGame('online', 'auto', configs, 'normal');
+  };
+
   const handleLoadingComplete = () => {
     setScreen('playing');
     addLog(`STAND CLASH ARENA COMMENCED!`, 'stand');
@@ -1101,6 +1196,9 @@ export default function App() {
             currentStance={currentStance}
             currentZone={currentZone}
             aiDifficulty={aiDifficulty}
+            gameMode={gameMode}
+            onlineRoomCode={onlineRoomCode}
+            myOnlinePlayerId={myOnlinePlayerId}
             onSelectStance={(st) => setCurrentStance(st)}
             onRollDice={handleRollDice}
             onToggleSound={() => {
@@ -1122,7 +1220,13 @@ export default function App() {
 
       {/* Stand Clash Rapid Mash Minigame Modal — Only active during gameplay */}
       {screen === 'playing' && (
-        <StandClashModal clashData={clashData} onResolveClash={handleResolveClash} />
+        <StandClashModal
+          clashData={clashData}
+          onResolveClash={handleResolveClash}
+          gameMode={gameMode}
+          myOnlinePlayerId={myOnlinePlayerId}
+          onOnlineClashTap={(side) => onlineService.clashTap(side)}
+        />
       )}
 
       {/* Selected Cell Modal */}
@@ -1207,6 +1311,7 @@ export default function App() {
           setGameMode('pass-and-play');
           setScreen('character-select');
         }}
+        onOpenOnlineLobby={() => setIsOnlineLobbyOpen(true)}
         onOpenRules={() => setIsSettingsOpen(true)}
         onCloseRules={() => {
           setScreen(players.length > 0 ? 'playing' : 'menu');
@@ -1224,6 +1329,13 @@ export default function App() {
         onConfirmStartGame={handleStartGame}
         onPlayAgain={handleRestartMatch}
         onOpenSettings={() => setIsSettingsOpen(true)}
+      />
+
+      {/* Online Multiplayer Lobby Modal */}
+      <OnlineLobbyModal
+        isOpen={isOnlineLobbyOpen}
+        onClose={() => setIsOnlineLobbyOpen(false)}
+        onStartOnlineGame={handleStartOnlineGame}
       />
 
       {/* Abandon Match Confirmation Warning Modal */}
