@@ -11,6 +11,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Speedwagon smashes a path through the mist! Restores 25 Willpower and boosts you 3 tiles forward.',
     moveOffset: 3,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_5_7a80c93b.mp3',
   },
   10: {
     cellNumber: 10,
@@ -22,6 +23,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'A towering golden oak tree sprouts instantly, vaulting you straight up to Cell 49!',
     targetCell: 49,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_10_c534b075.mp3',
   },
   12: {
     cellNumber: 12,
@@ -33,6 +35,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Bruno Bucciarati opens a zipper in space! Slip through to surge 8 tiles forward.',
     moveOffset: 8,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_12_ecc44d16.mp3',
   },
   15: {
     cellNumber: 15,
@@ -43,6 +46,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Time Stop: Miss 2 Turns',
     description: 'DIO stops time around you! You remain frozen in place for 2 full turns.',
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_15_343cf928.mp3',
   },
   18: {
     cellNumber: 18,
@@ -53,6 +57,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Hamon Barrier: +30 SP & 2-Turn Shield',
     description: 'Master Zeppeli corrects your diaphragm rhythm! Supercharges 30 Stand Power and grants a Hamon Shield.',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/tile_18_63f7abb9.mp3',
   },
   20: {
     cellNumber: 20,
@@ -64,6 +69,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Josuke punches shattered bricks back together, slingshotting you to Cell 56!',
     targetCell: 56,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_20_76348317.mp3',
   },
   24: {
     cellNumber: 24,
@@ -75,6 +81,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Polnareff sheds his heavy armor plate, dashing +4 cells ahead and pushing rival back 3 tiles!',
     moveOffset: 4,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_24_2f10aa5e.mp3',
   },
   28: {
     cellNumber: 28,
@@ -85,6 +92,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Furious Flurry: +2 Extra Rolls',
     description: 'Jotaro unleashes a barrage of rapid punches! You gain 2 consecutive free rolls.',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/tile_28_e079ab24.mp3',
   },
   32: {
     cellNumber: 32,
@@ -95,6 +103,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Blazing Ankh: Rivals take 20 HP Damage',
     description: 'Avdol unleashes an engulfing fire storm! Surrounding rivals take 20 Willpower damage.',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_32_b9c96100.mp3',
   },
   35: {
     cellNumber: 35,
@@ -106,6 +115,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Okuyasu swings his right hand and scrapes away space, pulling you 3 steps back!',
     moveOffset: -3,
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_35_ff6b69bc.mp3',
   },
   38: {
     cellNumber: 38,
@@ -116,6 +126,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: '20m Radius: +20 SP & +1 Extra Roll',
     description: 'Kakyoin weaves an intricate emerald web across the floor, granting +20 SP and 1 bonus roll!',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_38_a2d120e7.mp3',
   },
   42: {
     cellNumber: 42,
@@ -126,6 +137,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Weight Drop: +1 Extra Roll',
     description: 'Koichi concentrates gravitational weight on the arena, giving you +1 bonus roll!',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_42_231800a3.mp3',
   },
   45: {
     cellNumber: 45,
@@ -136,6 +148,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Entangled Tresses: Miss 1 Turn & -15 SP',
     description: 'Living hair of the undead knight wraps around your boots! Stuns for 1 turn and siphons 15 SP.',
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_45_375f7054.mp3',
   },
   50: {
     cellNumber: 50,
@@ -147,6 +160,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Joseph latches thorny purple vines across the rafters, swinging you 5 cells ahead.',
     moveOffset: 5,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_50_8ba6b1eb.mp3',
   },
   55: {
     cellNumber: 55,
@@ -158,6 +172,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Tarkus clamps the massive iron death collar on your neck! Deals 20 damage and drags you 4 tiles back.',
     moveOffset: -4,
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_55_b1cffc8b.mp3',
   },
   60: {
     cellNumber: 60,
@@ -168,6 +183,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: "Rohan's Edit: Steal Next Turn",
     description: 'Rohan Kishibe rewrites destiny! You gain an extra roll while the next player loses theirs.',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/tile_60_ac30501a.mp3',
   },
   64: {
     cellNumber: 64,
@@ -178,6 +194,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Lethal Virus: -20 HP & +35 SP Rage',
     description: 'Fugo’s Stand shatters a knuckle bulb! Deals 20 damage but fills your Stand gauge with +35 SP in pure fury.',
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_64_764e7ad1.mp3',
   },
   70: {
     cellNumber: 70,
@@ -187,6 +204,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     cry: 'HAIL 2 U!',
     effectLabel: 'Wish Granted: Next Player +1 Roll',
     description: 'A bizarre wish granted by clay genie! Grants the subsequent rival 1 free roll.',
+    audioSrc: '/assets/aistudio/Tile_70_af219e50.mp3',
   },
   72: {
     cellNumber: 72,
@@ -198,6 +216,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Diavolo erases time itself! Teleport +6 tiles forward, phasing clean through any obstacles.',
     moveOffset: 6,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_72_15bb2a21.mp3',
   },
   75: {
     cellNumber: 75,
@@ -209,6 +228,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Kira presses the detonator! Time collapses and blows you all the way back to Cell 2!',
     targetCell: 2,
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_75_bb8069a2.mp3',
   },
   80: {
     cellNumber: 80,
@@ -219,6 +239,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Sand Trap: Miss 1 Turn',
     description: 'Iggy summons a shifting sand dune that temporarily engulfs you for 1 turn.',
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_80_7b3f91d2.mp3',
   },
   85: {
     cellNumber: 85,
@@ -229,6 +250,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Stand Theft: Ability Cooldowns +1',
     description: 'Father Pucci pulls out your memory DISC! Increases all active ability cooldowns by +1 turn.',
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_85_b4fed445.mp3',
   },
   88: {
     cellNumber: 88,
@@ -240,6 +262,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'Valentine slips between two flags! Cleanses all debuffs and surges +5 tiles forward.',
     moveOffset: 5,
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_88_97fa29bb.mp3',
   },
   90: {
     cellNumber: 90,
@@ -250,6 +273,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Ancient Surge: +40 Stand Power (SP)',
     description: 'The ancient Aztec stone mask hums with primordial energy, supercharging your Stand gauge!',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_90_1f1e2bd6.mp3',
   },
   94: {
     cellNumber: 94,
@@ -261,6 +285,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     description: 'The flow of calamity strikes those who pursue the arrow! Knocks you back 5 cells unless shielded.',
     moveOffset: -5,
     isHazard: true,
+    audioSrc: '/assets/aistudio/tile_94_5c6b33ab.mp3',
   },
   98: {
     cellNumber: 98,
@@ -271,6 +296,7 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Singularity Point: +2 Extra Free Rolls',
     description: 'Gravitational acceleration hits the universe! Grants 2 rapid extra rolls straight toward Ascension.',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_98_14b49f1f.mp3',
   },
   100: {
     cellNumber: 100,
@@ -281,5 +307,6 @@ export const SPECIAL_CELLS: Record<number, SpecialCell> = {
     effectLabel: 'Ultimate Victory: Celestial Ascension',
     description: 'You grasp the beetle-engraved Golden Arrow, piercing your Stand and ascending to Heaven!',
     isShortcut: true,
+    audioSrc: '/assets/aistudio/Tile_100_7a294df8.mp3',
   },
 };

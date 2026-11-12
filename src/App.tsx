@@ -125,6 +125,7 @@ export default function App() {
       setOnlineRoomCode(null);
       setMyOnlinePlayerId(null);
     }
+    sound.stopSpecialTileAudio(true);
     sound.stopAmbience();
     characterVoiceAudio.stopAllVoiceAudio();
     setActiveBanner(null);
@@ -400,7 +401,8 @@ export default function App() {
         updatedRankCounter++;
         setRankCounter(updatedRankCounter);
 
-        sound.playVictory();
+        // Play Tile 100 victory song continuously until new game or menu
+        sound.playSpecialTileAudio(100);
         confetti({ particleCount: 160, spread: 100, origin: { y: 0.55 } });
         triggerVoiceDialogue(p.character, 'clash_win');
 
@@ -610,14 +612,14 @@ export default function App() {
         2500
       );
 
+      // Play special tile theme song! Cuts any previous tile song and plays with same strength volume
+      sound.playSpecialTileAudio(cellNumber);
+
       if (special.isHazard) {
-        sound.playHazard();
         // Deal hazard damage
         setPlayersWithRef((prev) =>
           prev.map((p) => (p.id === playerId ? { ...p, hp: Math.max(15, p.hp - 20) } : p))
         );
-      } else {
-        sound.playStandSummon();
       }
 
       // 4. Apply non-movement stat effects
@@ -1087,6 +1089,9 @@ export default function App() {
     setCurrentStance('rush');
     setClashData(null);
     setScreen('loading');
+
+    // Stop any previously playing special tile or Tile 100 victory music
+    sound.stopSpecialTileAudio(true);
 
     // Start battle music matching protagonist's theme if default is active
     const leadCharId = configs[0]?.character?.id;

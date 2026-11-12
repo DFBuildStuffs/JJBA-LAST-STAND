@@ -122,6 +122,36 @@ export function getZoneForCell(cellNumber: number): SoundscapeZone {
   return 'mansion';
 }
 
+export const SPECIAL_TILE_TRACKS: Record<number, string> = {
+  5: '/assets/aistudio/Tile_5_7a80c93b.mp3',
+  10: '/assets/aistudio/Tile_10_c534b075.mp3',
+  12: '/assets/aistudio/Tile_12_ecc44d16.mp3',
+  15: '/assets/aistudio/tile_15_343cf928.mp3',
+  18: '/assets/aistudio/tile_18_63f7abb9.mp3',
+  20: '/assets/aistudio/Tile_20_76348317.mp3',
+  24: '/assets/aistudio/Tile_24_2f10aa5e.mp3',
+  28: '/assets/aistudio/tile_28_e079ab24.mp3',
+  32: '/assets/aistudio/Tile_32_b9c96100.mp3',
+  35: '/assets/aistudio/tile_35_ff6b69bc.mp3',
+  38: '/assets/aistudio/Tile_38_a2d120e7.mp3',
+  42: '/assets/aistudio/Tile_42_231800a3.mp3',
+  45: '/assets/aistudio/tile_45_375f7054.mp3',
+  50: '/assets/aistudio/Tile_50_8ba6b1eb.mp3',
+  55: '/assets/aistudio/tile_55_b1cffc8b.mp3',
+  60: '/assets/aistudio/tile_60_ac30501a.mp3',
+  64: '/assets/aistudio/tile_64_764e7ad1.mp3',
+  70: '/assets/aistudio/Tile_70_af219e50.mp3',
+  72: '/assets/aistudio/Tile_72_15bb2a21.mp3',
+  75: '/assets/aistudio/tile_75_bb8069a2.mp3',
+  80: '/assets/aistudio/tile_80_7b3f91d2.mp3',
+  85: '/assets/aistudio/tile_85_b4fed445.mp3',
+  88: '/assets/aistudio/Tile_88_97fa29bb.mp3',
+  90: '/assets/aistudio/Tile_90_1f1e2bd6.mp3',
+  94: '/assets/aistudio/tile_94_5c6b33ab.mp3',
+  98: '/assets/aistudio/Tile_98_14b49f1f.mp3',
+  100: '/assets/aistudio/Tile_100_7a294df8.mp3',
+};
+
 class AnimeSoundEngine {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
@@ -141,6 +171,12 @@ class AnimeSoundEngine {
   public isBgmPlaying: boolean = false;
   public bgmVolume: number = 0.55;
   private onTrackChangeCallbacks: Array<(trackId: string, isPlaying: boolean) => void> = [];
+
+  // Dedicated Special Tile Audio Controller (Equal strength volume & auto-cut previous tile)
+  private specialTileAudio: HTMLAudioElement | null = null;
+  public currentSpecialTile: number | null = null;
+  public isTile100Playing: boolean = false;
+  public specialTileVolume: number = 0.85;
 
   public subscribeBgm(cb: (trackId: string, isPlaying: boolean) => void) {
     this.onTrackChangeCallbacks.push(cb);
@@ -192,6 +228,9 @@ class AnimeSoundEngine {
     if (this.bgmAudio) {
       this.bgmAudio.volume = this.isMuted ? 0 : this.bgmVolume;
     }
+    if (this.specialTileAudio) {
+      this.specialTileAudio.volume = this.isMuted ? 0 : this.specialTileVolume;
+    }
     if (this.ambientMasterGain && this.ctx) {
       const t = this.ctx.currentTime;
       this.ambientMasterGain.gain.cancelScheduledValues(t);
@@ -202,6 +241,90 @@ class AnimeSoundEngine {
     }
     this.notifyBgmChange();
     return this.isMuted;
+  }
+
+  // --- SPECIAL TILE SOUND ENGINE ---
+  // Plays the specific audio for a special tile, cuts any previous special tile track instantly,
+  // maintains equal volume across all tracks, and loops tile 100 until new match or home screen.
+  public playSpecialTileAudio(cellNumber: number) {
+    const src = SPECIAL_TILE_TRACKS[cellNumber];
+    if (!src) return;
+
+    this.initContext();
+
+    // 1. Instantly cut/cancel any previously playing special tile song
+    if (this.specialTileAudio) {
+      try {
+        this.specialTileAudio.pause();
+        this.specialTileAudio.currentTime = 0;
+      } catch (_) {}
+    } else {
+      this.specialTileAudio = new Audio();
+    }
+
+    this.currentSpecialTile = cellNumber;
+    this.specialTileAudio.src = src;
+
+    // 2. Uniform volume strength across all songs
+    this.specialTileAudio.volume = this.isMuted ? 0 : this.specialTileVolume;
+
+    // 3. Tile 100 plays continuously until new game starts or player goes to menu
+    if (cellNumber === 100) {
+      this.isTile100Playing = true;
+      this.specialTileAudio.loop = true;
+
+      // Pause regular background music so Tile 100 victory song is primary
+      if (this.bgmAudio) {
+        try {
+          this.bgmAudio.pause();
+        } catch (_) {}
+        this.isBgmPlaying = false;
+        this.notifyBgmChange();
+      }
+    } else {
+      this.isTile100Playing = false;
+      this.specialTileAudio.loop = false;
+
+      // Duck background music slightly so special tile song cuts through clearly
+      if (this.bgmAudio && this.isBgmPlaying && !this.isMuted) {
+        this.bgmAudio.volume = Math.max(0.08, this.bgmVolume * 0.25);
+      }
+
+      this.specialTileAudio.onended = () => {
+        // When special tile track finishes, restore standard BGM volume
+        if (!this.isTile100Playing && this.bgmAudio && !this.isMuted) {
+          this.bgmAudio.volume = this.bgmVolume;
+        }
+      };
+    }
+
+    this.specialTileAudio.play().catch(() => {});
+  }
+
+  // Stop special tile audio (e.g. on new game or return to menu)
+  public stopSpecialTileAudio(includeTile100: boolean = true) {
+    if (!this.specialTileAudio) return;
+    if (!includeTile100 && this.isTile100Playing) return;
+
+    try {
+      this.specialTileAudio.pause();
+      this.specialTileAudio.currentTime = 0;
+    } catch (_) {}
+
+    this.currentSpecialTile = null;
+    this.isTile100Playing = false;
+
+    // Restore standard BGM volume
+    if (this.bgmAudio && !this.isMuted) {
+      this.bgmAudio.volume = this.bgmVolume;
+    }
+  }
+
+  public setSpecialTileVolume(volume: number) {
+    this.specialTileVolume = Math.max(0, Math.min(1, volume));
+    if (this.specialTileAudio) {
+      this.specialTileAudio.volume = this.isMuted ? 0 : this.specialTileVolume;
+    }
   }
 
   public playTrack(trackId: string) {
@@ -296,6 +419,14 @@ class AnimeSoundEngine {
     const nextId = MUSIC_TRACKS[nextIdx].id;
     this.playTrack(nextId);
     return nextId;
+  }
+
+  public prevTrack(): string {
+    const currentIndex = MUSIC_TRACKS.findIndex((t) => t.id === this.currentTrackId);
+    const prevIdx = (currentIndex - 1 + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
+    const prevId = MUSIC_TRACKS[prevIdx].id;
+    this.playTrack(prevId);
+    return prevId;
   }
 
   public setBgmVolume(volume: number) {

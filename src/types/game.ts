@@ -77,6 +77,7 @@ export interface SpecialCell {
   isHazard?: boolean;
   isShortcut?: boolean;
   damage?: number;
+  audioSrc?: string;
 }
 
 export type GameMode = 'ai' | 'pass-and-play' | 'online';
