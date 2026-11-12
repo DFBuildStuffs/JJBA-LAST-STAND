@@ -14,6 +14,37 @@ class OnlineMultiplayerService {
     // Lazy connect when user opens Online Lobby
   }
 
+  public getServerUrl(): string {
+    const customUrl = typeof window !== 'undefined' ? localStorage.getItem('jojo_custom_ws_url') : null;
+    if (customUrl && customUrl.trim()) return customUrl.trim();
+
+    const envUrl = (import.meta as any).env?.VITE_WS_URL;
+    if (envUrl && envUrl.trim()) return envUrl.trim();
+
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}/ws`;
+    }
+    return 'ws://localhost:3000/ws';
+  }
+
+  public setCustomWsUrl(url: string | null) {
+    if (typeof window !== 'undefined') {
+      if (url && url.trim()) {
+        localStorage.setItem('jojo_custom_ws_url', url.trim());
+      } else {
+        localStorage.removeItem('jojo_custom_ws_url');
+      }
+    }
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch (_) {}
+      this.ws = null;
+    }
+    this.connect();
+  }
+
   public connect(): Promise<boolean> {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return Promise.resolve(true);
@@ -21,14 +52,30 @@ class OnlineMultiplayerService {
 
     return new Promise((resolve) => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const wsUrl = this.getServerUrl();
+        this.emit('connection_status', { connected: false, connecting: true, url: wsUrl });
+
         this.ws = new WebSocket(wsUrl);
 
+        // Timeout guard: if connection hangs for more than 4 seconds (common on serverless 404s)
+        const connectTimeout = setTimeout(() => {
+          if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+            this.emit('connection_status', {
+              connected: false,
+              connecting: false,
+              error: 'Connection timeout. No persistent WebSocket server found at this URL.',
+              url: wsUrl,
+              isVercelError: typeof window !== 'undefined' && window.location.hostname.includes('vercel.app'),
+            });
+            resolve(false);
+          }
+        }, 4000);
+
         this.ws.onopen = () => {
+          clearTimeout(connectTimeout);
           this.isConnected = true;
           this.startHeartbeat();
-          this.emit('connection_status', { connected: true });
+          this.emit('connection_status', { connected: true, connecting: false, url: wsUrl });
           resolve(true);
         };
 
@@ -43,18 +90,30 @@ class OnlineMultiplayerService {
         };
 
         this.ws.onerror = (err) => {
-          console.error('WebSocket error:', err);
-          this.emit('connection_status', { connected: false, error: err });
+          clearTimeout(connectTimeout);
+          console.error('WebSocket connection error:', err);
+          const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+          this.emit('connection_status', {
+            connected: false,
+            connecting: false,
+            error: isVercel
+              ? 'Vercel is a serverless platform and cannot host persistent WebSocket servers. Please deploy your backend on Render/Railway, or configure VITE_WS_URL.'
+              : 'Failed to connect to multiplayer server at ' + wsUrl,
+            url: wsUrl,
+            isVercelError: isVercel,
+          });
           resolve(false);
         };
 
         this.ws.onclose = () => {
+          clearTimeout(connectTimeout);
           this.isConnected = false;
           this.stopHeartbeat();
-          this.emit('connection_status', { connected: false });
+          this.emit('connection_status', { connected: false, connecting: false, url: wsUrl });
         };
       } catch (e) {
         console.error('Failed to initiate WebSocket:', e);
+        this.emit('connection_status', { connected: false, connecting: false, error: String(e) });
         resolve(false);
       }
     });
@@ -81,6 +140,12 @@ class OnlineMultiplayerService {
       this.connect().then((ok) => {
         if (ok && this.ws && this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify({ action, ...data }));
+        } else {
+          const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+          const message = isVercel
+            ? 'Cannot create room: Vercel serverless hosting does not support persistent WebSockets. To play online, deploy the app to Render/Railway or configure VITE_WS_URL.'
+            : 'Multiplayer server is currently offline or unreachable. Please verify server status.';
+          this.emit('error', { message });
         }
       });
     }

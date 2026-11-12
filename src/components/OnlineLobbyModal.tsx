@@ -16,6 +16,11 @@ import {
   ShieldAlert,
   ArrowRight,
   Flame,
+  Wifi,
+  WifiOff,
+  Server,
+  HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
 
 interface OnlineLobbyModalProps {
@@ -41,6 +46,15 @@ export const OnlineLobbyModal: React.FC<OnlineLobbyModalProps> = ({
   const [myPlayerId, setMyPlayerId] = useState<number | null>(null);
   const [activeTaunt, setActiveTaunt] = useState<string | null>(null);
 
+  // Server Connection Status & Vercel Helper
+  const [isWsConnected, setIsWsConnected] = useState<boolean>(onlineService.isConnected);
+  const [isWsConnecting, setIsWsConnecting] = useState<boolean>(false);
+  const [isVercelEnv, setIsVercelEnv] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  });
+  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
+  const [customServerUrl, setCustomServerUrl] = useState<string>(() => onlineService.getServerUrl());
+
   // Check URL query param for ?room=CODE
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -54,6 +68,19 @@ export const OnlineLobbyModal: React.FC<OnlineLobbyModalProps> = ({
   // Subscribe to online service events
   useEffect(() => {
     onlineService.connect();
+
+    const unsubConn = onlineService.on('connection_status', (data) => {
+      setIsWsConnected(Boolean(data.connected));
+      setIsWsConnecting(Boolean(data.connecting));
+      if (data.isVercelError) {
+        setIsVercelEnv(true);
+      }
+      if (data.error) {
+        setErrorMessage(data.error);
+      } else if (data.connected) {
+        setErrorMessage(null);
+      }
+    });
 
     const unsubCreated = onlineService.on('room_created', (data) => {
       setRoomState(data.room);
@@ -103,6 +130,7 @@ export const OnlineLobbyModal: React.FC<OnlineLobbyModalProps> = ({
     });
 
     return () => {
+      unsubConn();
       unsubCreated();
       unsubJoined();
       unsubUpdate();
@@ -188,33 +216,138 @@ export const OnlineLobbyModal: React.FC<OnlineLobbyModalProps> = ({
         )}
 
         {/* Header Bar */}
-        <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3 mb-4 shrink-0 relative z-10">
+        <div className="flex items-center justify-between border-b-2 border-slate-800 pb-3 mb-3 shrink-0 relative z-10">
           <div className="flex items-center gap-2.5">
             <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-sky-400 animate-pulse" />
             <div>
-              <h2 className="font-bangers text-2xl sm:text-3xl text-yellow-400 tracking-wider">
-                ONLINE STAND BATTLE
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bangers text-2xl sm:text-3xl text-yellow-400 tracking-wider">
+                  ONLINE STAND BATTLE
+                </h2>
+                {/* Live Connection Badge */}
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+                    isWsConnected
+                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500'
+                      : isWsConnecting
+                      ? 'bg-amber-950/80 text-amber-300 border-amber-500 animate-pulse'
+                      : 'bg-red-950/80 text-red-300 border-red-500'
+                  }`}
+                  title={isWsConnected ? 'Connected to Multiplayer Server' : 'Disconnected from Server'}
+                >
+                  {isWsConnected ? (
+                    <>
+                      <Wifi className="w-3 h-3 text-emerald-400" />
+                      <span>ONLINE</span>
+                    </>
+                  ) : isWsConnecting ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      <span>CONNECTING...</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="w-3 h-3 text-red-400" />
+                      <span>OFFLINE</span>
+                    </>
+                  )}
+                </span>
+              </div>
               <p className="text-xs text-slate-400">Play real-time with friends across any device</p>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              if (roomState) handleLeaveRoom();
-              onClose();
-            }}
-            className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowServerConfig(!showServerConfig)}
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-yellow-400 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer text-xs flex items-center gap-1"
+              title="Server & Hosting Settings"
+            >
+              <Server className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => {
+                if (roomState) handleLeaveRoom();
+                onClose();
+              }}
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
         </div>
+
+        {/* Vercel Serverless Hosting Warning & Guidance Banner */}
+        {(!isWsConnected || isVercelEnv || showServerConfig) && (
+          <div className="mb-3 px-3.5 py-2.5 bg-gradient-to-r from-purple-950/90 via-slate-900 to-slate-950 border-2 border-yellow-500/70 rounded-2xl text-xs space-y-2 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-yellow-400 shrink-0" />
+                <span className="font-bangers text-sm text-yellow-300 tracking-wide">
+                  {isVercelEnv ? 'DEPLOYING ON VERCEL? READ THIS' : 'SERVER CONNECTION SETTINGS'}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowServerConfig(!showServerConfig)}
+                className="text-[10px] font-mono text-yellow-400 underline hover:text-yellow-300 cursor-pointer"
+              >
+                {showServerConfig ? 'Hide Config' : 'Configure Server'}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              {isVercelEnv ? (
+                <>
+                  <strong className="text-white">Why rooms fail on Vercel:</strong> Vercel is a serverless platform designed for static sites and functions. It does <strong className="text-yellow-300">not</strong> run persistent WebSocket servers (<code className="text-sky-300">server.ts</code>). To play online with friends, you can host the backend for free on <strong className="text-white">Render, Railway, or Fly.io</strong>, or connect below!
+                </>
+              ) : (
+                <>
+                  Connected via WebSocket: <code className="text-sky-300 font-mono">{onlineService.getServerUrl()}</code>
+                </>
+              )}
+            </p>
+
+            {showServerConfig && (
+              <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center gap-2">
+                <input
+                  type="text"
+                  value={customServerUrl}
+                  onChange={(e) => setCustomServerUrl(e.target.value)}
+                  placeholder="wss://your-render-app.onrender.com/ws"
+                  className="w-full sm:flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-yellow-400 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onlineService.setCustomWsUrl(customServerUrl);
+                    setErrorMessage(null);
+                  }}
+                  className="w-full sm:w-auto px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bangers text-xs rounded-lg transition-transform active:scale-95 cursor-pointer shrink-0"
+                >
+                  SAVE & RECONNECT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onlineService.setCustomWsUrl(null);
+                    setCustomServerUrl(onlineService.getServerUrl());
+                    setErrorMessage(null);
+                  }}
+                  className="text-[10px] font-mono text-slate-400 hover:text-white px-2 py-1"
+                >
+                  Reset Default
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Error Notification */}
         {errorMessage && (
           <div className="mb-3 px-3 py-2 bg-red-950/80 border border-red-500 rounded-xl text-red-300 text-xs flex items-center gap-2 shrink-0">
             <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
-            <span>{errorMessage}</span>
+            <span className="leading-snug">{errorMessage}</span>
           </div>
         )}
 
